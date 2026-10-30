@@ -3,6 +3,15 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingA
 from peft import LoraConfig, get_peft_model
 from shared import INTERRUPT, WAIT
 
+import transformers.trainer as _t, transformers.trainer_optimizer as _o
+_t.has_mixed_dtensor = lambda params: False
+_o.has_mixed_dtensor = lambda params: False
+
+if not torch.distributed.is_available():
+    import accelerate.accelerator as _accelerator
+
+    _accelerator.model_has_dtensor = lambda model: False
+
 BASE = "Qwen/Qwen3-4B"
 MAX_LEN = 768
 
@@ -68,11 +77,17 @@ def main():
     else:
         device = a.device
     if device == "cuda" and not torch.cuda.is_available():
-        raise SystemExit("CUDA requested, but this torch build has no CUDA support.")
+        raise SystemExit(
+            "CUDA requested, but CUDA is unavailable. Install a CUDA-enabled PyTorch build "
+            "and check that a supported GPU driver is installed."
+        )
 
     base = a.base
-    dtype = torch.bfloat16 if device == "cuda" else torch.float32
-    print(f"device={device} base={base} dtype={dtype}")
+    use_bf16 = device == "cuda" and torch.cuda.is_bf16_supported()
+    use_fp16 = device == "cuda" and not use_bf16
+    dtype = torch.bfloat16 if use_bf16 else torch.float16 if use_fp16 else torch.float32
+    device_name = torch.cuda.get_device_name(0) if device == "cuda" else device
+    print(f"device={device} ({device_name}) base={base} dtype={dtype}")
     if device == "cpu":
         print("CPU training is slow; use --base Qwen/Qwen3-0.6B if 4B does not fit in RAM.")
 
@@ -101,14 +116,23 @@ def main():
 
     train = DS(f"data/train_{a.persona}.jsonl", tok)
     out = f"out/{a.persona}"
+    training_args = TrainingArguments(
+        output_dir=out, per_device_train_batch_size=4 if device == "cuda" else 1,
+        gradient_accumulation_steps=4 if device == "cuda" else 16,
+        num_train_epochs=a.epochs, learning_rate=a.lr, lr_scheduler_type="cosine",
+        warmup_steps=10, bf16=use_bf16, fp16=use_fp16, use_cpu=device == "cpu",
+        logging_steps=5, save_strategy="no",
+        report_to="none", remove_unused_columns=False)
+    if device == "cuda" and training_args.n_gpu > 1:
+        # PEFT trainable-token adapters are not compatible with Trainer's DataParallel wrapper.
+        training_args._n_gpu = 1
+        print(
+            "Multiple GPUs detected; using cuda:0 because PEFT trainable-token "
+            "adapters require one GPU."
+        )
+
     Trainer(model=model, train_dataset=train, data_collator=make_collator(tok.pad_token_id),
-            args=TrainingArguments(
-                output_dir=out, per_device_train_batch_size=4 if device == "cuda" else 1,
-                gradient_accumulation_steps=4 if device == "cuda" else 16,
-                num_train_epochs=a.epochs, learning_rate=a.lr, lr_scheduler_type="cosine",
-                warmup_steps=10, bf16=device == "cuda", fp16=False, use_cpu=device == "cpu",
-                logging_steps=5, save_strategy="no",
-                report_to="none", remove_unused_columns=False)).train()
+            args=training_args).train()
 
     eval_decision(model, tok, f"data/test_{a.persona}.jsonl", ids)
 
