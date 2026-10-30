@@ -1,6 +1,6 @@
-import argparse, asyncio, json, math, os, random, re, subprocess, time
+import argparse, asyncio, json, math, os, random, re, subprocess, sys, threading, time
 from collections import Counter
-from contextlib import ExitStack, aclosing
+from contextlib import ExitStack, aclosing, redirect_stdout, suppress
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -8,7 +8,7 @@ import httpx
 from shared import MODERATOR, INTERRUPT, WAIT, render
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_SERVER = Path(r"C:\Users\Lion\School\freedom-ai\llama.cpp\build\bin\Release\llama-server.exe")
+DEFAULT_SERVER = Path(__file__).resolve().parent / "llama.cpp" / "bin" / "llama-server.exe"
 
 PERSONAS = {   # insertion order = speaking order; solidarity_us opens
     "solidarity_us": {"port": 8081, "label": "SOLIDARITÄT (USA)"},
@@ -27,6 +27,8 @@ client = None
 OPTS = None
 IDS = {}            # persona -> (interrupt token id, wait token id)
 _raw_printed = False
+SESSION = False     # JSON-lines protocol for the web frontend
+STDIN_QUEUE = None
 
 FALLBACK_SCENARIOS = [
     "Darf ich die Schule abbrechen?",
@@ -742,6 +744,230 @@ async def debate():
         print()
 
 
+# ---------- session protocol (web frontend) ----------
+def emit(event):
+    """Write one NDJSON event. Only active in --session mode."""
+    if not SESSION:
+        return
+    sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
+def _read_stdin(loop, queue):
+    try:
+        for line in sys.stdin:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(message, dict):
+                loop.call_soon_threadsafe(queue.put_nowait, message)
+    except (OSError, ValueError):
+        pass
+    finally:
+        loop.call_soon_threadsafe(queue.put_nowait, {"type": "eof"})
+
+
+async def wait_command(seconds, allow_agree=True):
+    """Wait for the next input/agree/end command, or return None on timeout."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + seconds
+    while True:
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            return None
+        try:
+            message = await asyncio.wait_for(STDIN_QUEUE.get(), timeout=remaining)
+        except asyncio.TimeoutError:
+            return None
+        kind = message.get("type")
+        if kind == "eof":
+            return {"type": "end"}
+        if kind == "end":
+            return message
+        if kind == "agree":
+            if allow_agree:
+                return message
+            continue
+        if kind == "input":
+            return message
+
+
+async def collect_text(speaker, prompt, n_predict=None, temperature=None):
+    out = []
+    async with aclosing(stream(speaker, prompt, n_predict or OPTS.tokens, temperature)) as gen:
+        async for piece in gen:
+            if piece:
+                out.append(piece)
+    return clean("".join(out)).strip()
+
+
+async def session_suggestion(model, transcript, start):
+    try:
+        ctx = window(transcript, OPTS.topic, start, 4)
+        prompt = render(ctx, next_speaker=model)
+        text = await collect_text(model, prompt, 60, max(0.4, OPTS.temperature - 0.2))
+    except Exception:
+        return
+    text = trim_to_sentences(text, 2)
+    if text and not looks_like_assistant(text):
+        emit({"type": "suggestion", "speaker": model, "text": text})
+
+
+async def session_ai_turn(speaker, transcript, start, section="turn", n_predict=None,
+                          human=False, auto=False):
+    ctx = window(transcript, OPTS.topic, start, 4)
+    event = {
+        "type": "turn_start",
+        "speaker": speaker,
+        "label": PERSONAS[speaker]["label"],
+        "section": section,
+    }
+    if human:
+        event["human"] = True
+    if auto:
+        event["auto"] = True
+    emit(event)
+    prompt = render(ctx, next_speaker=speaker)
+    text = ""
+    async with aclosing(stream(speaker, prompt, n_predict or OPTS.tokens)) as gen:
+        async for piece in gen:
+            if not piece:
+                continue
+            text += piece
+            emit({"type": "delta", "speaker": speaker, "text": piece, "section": section})
+    text = clean(text).strip()
+    if not text:
+        text = random.choice(FALLBACK_LINES[speaker])
+        emit({"type": "delta", "speaker": speaker, "text": text, "section": section, "fallback": True})
+    transcript.append((speaker, text))
+    return text
+
+
+async def session_human_turn(role, speaker, transcript, start, section="turn",
+                             allow_suggestion=False, suggestion_model=None):
+    label = PERSONAS[speaker]["label"] if speaker in PERSONAS else speaker
+    emit({
+        "type": "turn_start",
+        "speaker": speaker,
+        "label": label,
+        "section": section,
+        "human": True,
+    })
+    emit({
+        "type": "await_input",
+        "speaker": speaker,
+        "label": label,
+        "seconds": OPTS.turn_seconds,
+        "allow_agree": True,
+        "suggestions": bool(allow_suggestion and OPTS.suggestions),
+    })
+    task = None
+    if allow_suggestion and OPTS.suggestions:
+        task = asyncio.create_task(session_suggestion(suggestion_model or role, transcript, start))
+    try:
+        message = await wait_command(OPTS.turn_seconds, allow_agree=True)
+    finally:
+        if task is not None and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+    if message is not None and message.get("type") == "agree":
+        emit({"type": "outcome", "outcome": "agree"})
+        return "agree"
+    if message is not None and message.get("type") == "end":
+        return "end"
+    if message is None:
+        emit({"type": "timeout", "speaker": speaker})
+        text = random.choice(FALLBACK_LINES.get(role) or FALLBACK_LINES["solidarity_us"])
+        emit({"type": "delta", "speaker": speaker, "text": text, "section": section, "auto": True})
+        transcript.append((role, text))
+        return "timeout"
+    text = str(message.get("text", "")).strip()
+    if not text:
+        emit({"type": "timeout", "speaker": speaker})
+        text = random.choice(FALLBACK_LINES.get(role) or FALLBACK_LINES["solidarity_us"])
+        emit({"type": "delta", "speaker": speaker, "text": text, "section": section, "auto": True})
+        transcript.append((role, text))
+        return "timeout"
+    emit({"type": "delta", "speaker": speaker, "text": text, "section": section})
+    transcript.append((role, text))
+    return "input"
+
+
+async def session_human_vs_ai(quick=False):
+    human = OPTS.human_persona or "ddr"
+    ai = other(human)
+    transcript = [(MODERATOR, OPTS.topic)]
+    start = 1
+    emit({"type": "topic", "topic": OPTS.topic, "mode": "quick" if quick else "human_vs_ai"})
+    rounds = 4 if quick else max(1, OPTS.exchanges)
+    for _ in range(rounds):
+        result = await session_human_turn(human, human, transcript, start,
+                                          allow_suggestion=True, suggestion_model=human)
+        if result in ("agree", "end"):
+            return
+        await session_ai_turn(ai, transcript, start)
+    if quick:
+        emit({"type": "status", "state": "closing", "text": "Abschlussstatements"})
+        await session_ai_turn(ai, transcript, start, section="closing")
+        await session_ai_turn(human, transcript, start, section="closing", human=True, auto=True)
+
+
+async def session_human_vs_both():
+    transcript = [(MODERATOR, OPTS.topic)]
+    start = 1
+    emit({"type": "topic", "topic": OPTS.topic, "mode": "human_vs_both"})
+    for _ in range(max(1, OPTS.exchanges)):
+        result = await session_human_turn(MODERATOR, "human", transcript, start,
+                                          allow_suggestion=False)
+        if result in ("agree", "end"):
+            return
+        for speaker in PERSONAS:
+            await session_ai_turn(speaker, transcript, start)
+
+
+async def session_moderator():
+    transcript = [(MODERATOR, OPTS.topic)]
+    start = 1
+    emit({"type": "topic", "topic": OPTS.topic, "mode": "moderator"})
+    while True:
+        result = await session_human_turn(MODERATOR, "moderator", transcript, start,
+                                          allow_suggestion=False)
+        if result in ("agree", "end"):
+            return
+        for speaker in PERSONAS:
+            await session_ai_turn(speaker, transcript, start)
+
+
+async def session_main():
+    global client, STDIN_QUEUE
+    loop = asyncio.get_running_loop()
+    STDIN_QUEUE = asyncio.Queue()
+    threading.Thread(target=_read_stdin, args=(loop, STDIN_QUEUE), daemon=True).start()
+    emit({"type": "status", "state": "starting", "text": "Server werden vorbereitet"})
+    async with httpx.AsyncClient(timeout=None) as http:
+        client = http
+        emit({"type": "status", "state": "running", "text": "Debatte läuft"})
+        try:
+            if OPTS.session_mode == "quick":
+                await session_human_vs_ai(quick=True)
+            elif OPTS.session_mode == "human_vs_both":
+                await session_human_vs_both()
+            elif OPTS.session_mode == "moderator":
+                await session_moderator()
+            else:
+                await session_human_vs_ai()
+        except Exception as exc:
+            emit({"type": "error", "text": str(exc)})
+            emit({"type": "end", "status": "error", "exit_code": 1})
+            return
+    emit({"type": "end", "status": "done", "exit_code": 0})
+
+
 def settings_summary():
     return (f"[settings] mode={OPTS.mode} turns={OPTS.turns} rotate={OPTS.rotate} agree={OPTS.agree} "
             f"outcome={OPTS.outcome} temperature={OPTS.temperature} dry={OPTS.dry} "
@@ -779,15 +1005,36 @@ def parse_args():
     ap.add_argument("--patience", type=int, default=4)
     ap.add_argument("--rage", type=int, default=3)
     ap.add_argument("--outcome", choices=("auto", "agree", "disagree", "angry", "random"), default="auto")
+    ap.add_argument("--session", action="store_true", help="JSON-lines session protocol for the web frontend")
+    ap.add_argument("--session-mode", choices=("human_vs_ai", "human_vs_both", "moderator", "quick"),
+                    default="human_vs_ai")
+    ap.add_argument("--human-persona", choices=tuple(PERSONAS))
+    ap.add_argument("--turn-seconds", type=int, default=60)
+    ap.add_argument("--exchanges", type=int, default=4)
+    ap.add_argument("--suggestions", action=argparse.BooleanOptionalAction, default=True)
     return ap.parse_args()
 
 
 if __name__ == "__main__":
     os.system("")
     OPTS = parse_args()
-    if OPTS.debug:
+    SESSION = OPTS.session
+    if SESSION:
+        for stream in (sys.stdin, sys.stdout):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except (AttributeError, OSError):
+                pass
+    if OPTS.debug and not SESSION:
         print(settings_summary())
     with ExitStack() as stack:
         if not OPTS.no_launch:
-            launch_servers(OPTS, stack)
-        asyncio.run(debate())
+            if SESSION:
+                with redirect_stdout(sys.stderr):
+                    launch_servers(OPTS, stack)
+            else:
+                launch_servers(OPTS, stack)
+        if SESSION:
+            asyncio.run(session_main())
+        else:
+            asyncio.run(debate())
