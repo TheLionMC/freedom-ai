@@ -445,6 +445,8 @@ async def run_session(run: Run, command: list[str]) -> None:
                 continue
             if event.get("type") == "end" and isinstance(event.get("status"), str):
                 end_status = event["status"]
+                if not run.stop_requested:
+                    run.status = end_status
             run.emit(event)
         await proc.wait()
         with suppress(asyncio.CancelledError):
@@ -522,6 +524,12 @@ def blocks_from_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return blocks
 
 
+def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
+    if record.get("status") in ("starting", "running"):
+        record["status"] = "stopped"
+    return record
+
+
 def load_record(run_id: str) -> dict[str, Any]:
     run = ACTIVE.get(run_id)
     if run:
@@ -537,7 +545,7 @@ def load_record(run_id: str) -> dict[str, Any]:
     if not path.is_file():
         raise HTTPException(status_code=404, detail="run not found")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return normalize_record(json.loads(path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=500, detail=f"could not read run: {exc}") from exc
 
@@ -622,7 +630,7 @@ async def runs() -> dict[str, Any]:
     if RUNS_DIR.is_dir():
         for path in RUNS_DIR.glob("*.json"):
             try:
-                record = json.loads(path.read_text(encoding="utf-8"))
+                record = normalize_record(json.loads(path.read_text(encoding="utf-8")))
             except (OSError, json.JSONDecodeError):
                 continue
             items[record.get("id", path.stem)] = record_summary(record)
@@ -640,7 +648,7 @@ async def runs() -> dict[str, Any]:
 
 @app.post("/api/runs")
 async def create_run(params: RunParams) -> dict[str, Any]:
-    if ACTIVE:
+    if any(run.status in ("starting", "running") for run in ACTIVE.values()):
         raise HTTPException(status_code=409, detail="Eine Debatte läuft bereits. Bitte zuerst stoppen.")
     if not ORCHESTRATOR.is_file():
         raise HTTPException(status_code=500, detail="ochestrator.py wurde nicht gefunden.")

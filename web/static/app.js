@@ -1,184 +1,271 @@
 const I18N = {
   de: {
-    eyebrow: "Lokale Debattenmaschine",
-    title: "Freiheit im Gespräch",
-    subtitle: "Zwei trainierte Stimmen debattieren über Alltag, Gesellschaft und Freiheit.",
+    brandEyebrow: "Lokale Debattenmaschine",
+    brandTitle: "Freiheit im Gespräch",
+    history: "Verlauf",
+    newDebate: "Neue Debatte",
+    newDebateAfter: "Neue Debatte",
     statusReady: "Bereit",
     statusRunning: "Debatte läuft …",
     statusDone: "Abgeschlossen",
     statusStopped: "Gestoppt",
     statusError: "Fehler",
-    config: "Debatte konfigurieren",
-    topic: "Thema",
-    topicPlaceholder: "Sind Frauen im jetzigen Alltag frei?",
-    randomTopic: "Zufälliges Thema",
-    mode: "Gesprächsmodus",
+    homeKicker: "Debattenarena",
+    homeTitle: "Streite mit zwei trainierten Stimmen.",
+    homeSubtitle: "Wähle ein Format, gib ein Thema vor und debattiere live gegen Solidarität (USA), die DDR – oder gegen beide.",
+    modeAI: "KI gegen KI",
+    modeAIDesc: "Beide Modelle debattieren autonom. Du liest mit.",
+    modeHumanAI: "Du gegen eine KI",
+    modeHumanAIDesc: "Wähle eine Seite und antworte der anderen Stimme.",
+    modeHumanBoth: "Du gegen beide KIs",
+    modeHumanBothDesc: "Eine Aussage von dir, beide Stimmen antworten.",
+    modeModerator: "Du moderierst",
+    modeModeratorDesc: "Du stellst die Fragen, beide KIs antworten der Reihe nach.",
+    modeQuick: "Schnellduell",
+    modeQuickDesc: "Vier Runden, dann Abschlussstatements. Einigung beendet das Duell sofort.",
+    personaUS: "Solidarität (USA)",
+    personaUSDesc: "Freiheit, Eigenverantwortung und offene Debatte.",
+    personaDDR: "DDR",
+    personaDDRDesc: "Gemeinschaft, Ordnung und soziale Sicherheit.",
+    transcriptEmptyTitle: "Noch kein Thema",
+    replay: "Archiv",
+    stop: "Stoppen",
+    finished: "Debatte beendet.",
+    awaiting: "Du bist dran",
+    composerPlaceholder: "Schreibe deine Antwort …",
+    endDebate: "Debatte beenden",
+    agree: "Einigung erklären",
+    send: "Senden",
+    log: "Server-Log",
+    refresh: "Aktualisieren",
+    historyEmpty: "Noch keine Debatten gespeichert.",
+    chooseMode: "Format wählen",
+    topicLabel: "Thema",
+    topicPlaceholder: "Wenn das Land angegriffen wird, wäre es okay, das Land zu verlassen?",
+    chooseSide: "Deine Seite",
+    exchanges: "Runden",
+    turnSeconds: "Zeit pro Antwort",
+    suggestionsLabel: "Antwortvorschläge meiner Seite anzeigen",
+    debateMode: "Gesprächsmodus",
+    turns: "Runden",
+    outcome: "Ergebnis",
     modePolite: "Höflich",
     modeFree: "Frei",
     modeChaos: "Chaotisch",
-    turns: "Runden",
-    outcome: "Ergebnis",
     outcomeAuto: "Automatisch",
     outcomeAgree: "Einigung erzwingen",
     outcomeDisagree: "Uneinig bleiben",
     outcomeAngry: "Eskalation",
     outcomeRandom: "Zufällig",
-    rotate: "Themenwechsel",
-    agree: "Einigungsrunde nach jeder Runde",
-    temperature: "Temperatur",
     autoLaunch: "llama-server automatisch starten",
     autoLaunchHint: "Ausgeschaltet werden bereits laufende Server auf Port 8081/8082 genutzt.",
-    advanced: "Erweiterte Parameter",
-    context: "Kontextgröße",
-    tokens: "Max. Tokens",
-    maxSentences: "Max. Sätze",
-    cooldown: "Sperrzeit",
-    dry: "DRY",
-    mixEvery: "Wechsel alle",
-    jointSentences: "Sätze der Einigung",
-    accept: "Akzeptanzschwelle",
-    attempts: "Versuche",
-    patience: "Geduld",
-    rage: "Eskalationsschwelle",
-    dice: "Zufalls-Einwürfe",
-    repeatGuard: "Wiederholungsschutz",
-    debug: "Debug-Ausgabe",
-    start: "Debatte starten",
-    stop: "Stoppen",
-    personas: "Die Stimmen",
-    personaUS: "Solidarität (USA)",
-    personaUSDesc: "Freiheit, Eigenverantwortung und offene Debatte.",
-    personaDDR: "DDR",
-    personaDDRDesc: "Gemeinschaft, Ordnung und soziale Sicherheit.",
-    history: "Verlauf",
-    refresh: "Aktualisieren",
-    historyEmpty: "Noch keine Debatten gespeichert.",
-    transcript: "Protokoll",
-    transcriptEmptyTitle: "Noch kein Thema",
-    export: "Exportieren",
-    transcriptEmpty: "Wähle ein Thema und starte die Debatte.",
-    serverLog: "Server-Log",
+    cancel: "Abbrechen",
+    startDebate: "Debatte starten",
     moderator: "Moderator",
+    human: "Du",
     joint: "Gemeinsame Erklärung",
+    badgeAuto: "automatisch",
     badgeInterrupt: "unterbrochen",
     badgeObjection: "Einwand",
+    badgeClosing: "Abschluss",
+    closing: "Abschlussstatements",
+    timeoutNote: "Zeit abgelaufen — automatische Antwort",
     outcome_agree: "Einigung erreicht",
     outcome_disagree: "Uneinig, aber respektvoll",
     outcome_angry: "Abbruch: Streit eskaliert",
+    youSuffix: "· Du",
     unknownError: "Unbekannter Fehler",
-    stopRequested: "Stopp angefordert …",
     connectionLost: "Verbindung unterbrochen.",
     topicRequired: "Bitte ein Thema eingeben.",
+    stopRequested: "Stopp angefordert …",
+    sendFailed: "Antwort konnte nicht gesendet werden.",
+    errorNote: "Fehler",
+    waiting: "Warte auf Antwort …",
   },
   en: {
-    eyebrow: "Local debate engine",
-    title: "Freedom in Conversation",
-    subtitle: "Two trained voices debate everyday life, society and freedom.",
+    brandEyebrow: "Local debate engine",
+    brandTitle: "Freedom in Conversation",
+    history: "History",
+    newDebate: "New debate",
+    newDebateAfter: "New debate",
     statusReady: "Ready",
     statusRunning: "Debate running …",
     statusDone: "Finished",
     statusStopped: "Stopped",
     statusError: "Error",
-    config: "Configure debate",
-    topic: "Topic",
-    topicPlaceholder: "Are women free in everyday life today?",
-    randomTopic: "Random topic",
-    mode: "Debate mode",
+    homeKicker: "Debate arena",
+    homeTitle: "Argue with two trained voices.",
+    homeSubtitle: "Pick a format, set a topic and debate live against Solidarity (USA), the GDR — or both.",
+    modeAI: "AI vs AI",
+    modeAIDesc: "Both models debate on their own. You observe.",
+    modeHumanAI: "You vs one AI",
+    modeHumanAIDesc: "Pick a side and answer the other voice.",
+    modeHumanBoth: "You vs both AIs",
+    modeHumanBothDesc: "One statement from you, both voices respond.",
+    modeModerator: "You moderate",
+    modeModeratorDesc: "You ask the questions, both AIs answer in turn.",
+    modeQuick: "Quick duel",
+    modeQuickDesc: "Four rounds, then closing statements. Agreement ends it immediately.",
+    personaUS: "Solidarity (USA)",
+    personaUSDesc: "Freedom, personal responsibility and open debate.",
+    personaDDR: "GDR",
+    personaDDRDesc: "Community, order and social security.",
+    transcriptEmptyTitle: "No topic yet",
+    replay: "Archive",
+    stop: "Stop",
+    finished: "Debate finished.",
+    awaiting: "Your turn",
+    composerPlaceholder: "Write your response …",
+    endDebate: "End debate",
+    agree: "Declare agreement",
+    send: "Send",
+    log: "Server log",
+    refresh: "Refresh",
+    historyEmpty: "No debates saved yet.",
+    chooseMode: "Choose a format",
+    topicLabel: "Topic",
+    topicPlaceholder: "If the country is attacked, would it be okay to leave it?",
+    chooseSide: "Your side",
+    exchanges: "Rounds",
+    turnSeconds: "Time per answer",
+    suggestionsLabel: "Show suggested replies from my side",
+    debateMode: "Conversation mode",
+    turns: "Rounds",
+    outcome: "Outcome",
     modePolite: "Polite",
     modeFree: "Free",
     modeChaos: "Chaotic",
-    turns: "Turns",
-    outcome: "Outcome",
     outcomeAuto: "Automatic",
     outcomeAgree: "Force agreement",
     outcomeDisagree: "Stay divided",
     outcomeAngry: "Escalation",
     outcomeRandom: "Random",
-    rotate: "Scenario rotation",
-    agree: "Joint statement after every round",
-    temperature: "Temperature",
     autoLaunch: "Start llama-server automatically",
     autoLaunchHint: "When off, servers already running on ports 8081/8082 are used.",
-    advanced: "Advanced parameters",
-    context: "Context size",
-    tokens: "Max tokens",
-    maxSentences: "Max sentences",
-    cooldown: "Cooldown",
-    dry: "DRY",
-    mixEvery: "Switch every",
-    jointSentences: "Sentences per joint statement",
-    accept: "Acceptance threshold",
-    attempts: "Attempts",
-    patience: "Patience",
-    rage: "Escalation threshold",
-    dice: "Random interjections",
-    repeatGuard: "Repetition guard",
-    debug: "Debug output",
-    start: "Start debate",
-    stop: "Stop",
-    personas: "The voices",
-    personaUS: "Solidarity (USA)",
-    personaUSDesc: "Freedom, personal responsibility and open debate.",
-    personaDDR: "GDR",
-    personaDDRDesc: "Community, order and social security.",
-    history: "History",
-    refresh: "Refresh",
-    historyEmpty: "No debates saved yet.",
-    transcript: "Transcript",
-    transcriptEmptyTitle: "No topic yet",
-    export: "Export",
-    transcriptEmpty: "Choose a topic and start the debate.",
-    serverLog: "Server log",
+    cancel: "Cancel",
+    startDebate: "Start debate",
     moderator: "Moderator",
+    human: "You",
     joint: "Joint statement",
+    badgeAuto: "automatic",
     badgeInterrupt: "interrupted",
     badgeObjection: "Objection",
+    badgeClosing: "Closing",
+    closing: "Closing statements",
+    timeoutNote: "Time expired — automatic answer",
     outcome_agree: "Agreement reached",
     outcome_disagree: "Divided, but respectful",
     outcome_angry: "Aborted: conflict escalated",
+    youSuffix: "· You",
     unknownError: "Unknown error",
-    stopRequested: "Stop requested …",
     connectionLost: "Connection lost.",
     topicRequired: "Please enter a topic.",
+    stopRequested: "Stop requested …",
+    sendFailed: "Could not send the response.",
+    errorNote: "Error",
+    waiting: "Waiting for a response …",
   },
+};
+
+const FORMAT_KEYS = {
+  ai_vs_ai: "modeAI",
+  human_vs_ai: "modeHumanAI",
+  human_vs_both: "modeHumanBoth",
+  moderator: "modeModerator",
+  quick: "modeQuick",
 };
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
-let lang = localStorage.getItem("religion-ai-lang") || "de";
-
 const state = {
-  lang,
+  lang: localStorage.getItem("religion-ai-lang") || "de",
   runId: null,
   running: false,
+  replaying: false,
+  format: null,
+  params: null,
   es: null,
   current: null,
-  nextObjection: false,
   lastSeq: -1,
   autoScroll: true,
   statusKey: "statusReady",
   history: [],
+  awaiting: false,
+  allowAgree: true,
+  pendingAwaitEvent: null,
+  awaitEvent: null,
+  deadline: 0,
+  timerTotal: 0,
+  timer: null,
+  logs: [],
 };
 
+const home = $("#home");
+const arena = $("#arena");
 const transcriptEl = $("#transcript");
-const logEl = $("#server-log");
 const statusPill = $("#status-pill");
 const statusText = $("#status-text");
-const startBtn = $("#start-btn");
-const stopBtn = $("#stop-btn");
+const arenaTopic = $("#arena-topic");
+const arenaFormat = $("#arena-format");
+const arenaParticipants = $("#arena-participants");
+const replayBadge = $("#replay-badge");
+const endBtn = $("#end-btn");
+const newDebateBtn = $("#new-debate-btn");
+const finishedBar = $("#finished-bar");
+const composer = $("#composer");
+const composerInput = $("#composer-input");
+const composerSend = $("#composer-send");
+const composerAgree = $("#composer-agree");
+const composerEnd = $("#composer-end");
+const composerTurn = $("#composer-turn");
+const suggestionsEl = $("#suggestions");
+const timerEl = $("#turn-timer");
+const timerText = $("#turn-timer-text");
+const timerBar = $("#turn-timer-bar");
+const logEl = $("#server-log");
 const formError = $("#form-error");
-const stageTopic = $("#stage-topic");
+const modal = $("#new-debate-modal");
+const modalTitle = $("#modal-title");
+const formatInput = $("#format-input");
+const formatPicker = $("#format-picker");
+const topicInput = $("#topic-input");
+const sideField = $("#side-field");
+const humanOptions = $("#human-options");
+const exchangesField = $("#exchanges-field");
+const exchangesInput = $("#exchanges-input");
+const turnSecondsInput = $("#turn-seconds-input");
+const suggestionsField = $("#suggestions-field");
+const suggestionsInput = $("#suggestions-input");
+const aiOptions = $("#ai-options");
+const aiModeInput = $("#ai-mode-input");
+const aiTurnsInput = $("#ai-turns-input");
+const aiOutcomeInput = $("#ai-outcome-input");
+const autoLaunchInput = $("#auto-launch-input");
+const startDebateBtn = $("#start-debate");
+const historyDrawer = $("#history-drawer");
+const historyList = $("#history-list");
+const scrim = $("#scrim");
 
 const t = (key) => (I18N[state.lang] && I18N[state.lang][key]) || I18N.de[key] || key;
 
-function applyI18n() {
-  document.documentElement.lang = state.lang === "de" ? "de" : "en";
-  $$("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
-  $$("[data-i18n-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
-  $$(".lang-switch button").forEach((btn) => btn.classList.toggle("active", btn.dataset.lang === state.lang));
-  statusText.textContent = t(state.statusKey);
-  renderHistory();
+const formatLabel = (format) => t(FORMAT_KEYS[format] || "modeAI");
+
+function speakerKey(speaker) {
+  if (speaker === "solidarity_us") return "personaUS";
+  if (speaker === "ddr") return "personaDDR";
+  if (speaker === "moderator") return "moderator";
+  if (speaker === "human") return "human";
+  if (speaker === "joint") return "joint";
+  return null;
+}
+
+function speakerClass(speaker, human) {
+  if (human || speaker === "human") return "human";
+  if (speaker === "solidarity_us") return "us";
+  if (speaker === "ddr") return "ddr";
+  if (speaker === "moderator") return "moderator";
+  return "";
 }
 
 function setStatus(key) {
@@ -193,50 +280,58 @@ function setStatus(key) {
   statusPill.className = "status-pill" + (tone ? " " + tone : "");
 }
 
-function showError(message) {
+function applyI18n() {
+  document.documentElement.lang = state.lang;
+  $$("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  $$("[data-i18n-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  $$(".lang-switch button").forEach((btn) => btn.classList.toggle("active", btn.dataset.lang === state.lang));
+  statusText.textContent = t(state.statusKey);
+  if (state.format) arenaFormat.textContent = formatLabel(state.format);
+  if (!modal.hidden) modalTitle.textContent = formatLabel(formatInput.value);
+  if (state.awaiting) composerTurn.textContent = t("awaiting");
+  renderHistory();
+}
+
+function showFormError(message) {
   formError.textContent = message || t("unknownError");
   formError.hidden = false;
 }
 
-function clearError() {
+function clearFormError() {
   formError.hidden = true;
   formError.textContent = "";
 }
 
-function log(text) {
+function addLog(text) {
   if (!text) return;
-  const lines = logEl.textContent ? logEl.textContent.split("\n") : [];
-  lines.push(text);
-  while (lines.length > 300) lines.shift();
-  logEl.textContent = lines.join("\n");
+  state.logs.push(text);
+  while (state.logs.length > 300) state.logs.shift();
+  logEl.textContent = state.logs.join("\n");
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-function labelKey(speaker) {
-  if (speaker === "solidarity_us") return "personaUS";
-  if (speaker === "ddr") return "personaDDR";
-  return "moderator";
+function clearLog() {
+  state.logs = [];
+  logEl.textContent = "";
 }
 
 function maybeScroll(force = false) {
-  if (force || state.autoScroll) {
-    transcriptEl.scrollTop = transcriptEl.scrollHeight;
-  }
+  const wrap = transcriptEl.parentElement;
+  if (force || state.autoScroll) wrap.scrollTop = wrap.scrollHeight;
 }
 
 function clearStreaming() {
-  if (state.current && state.current.el) {
-    state.current.el.classList.remove("streaming");
-  }
+  if (state.current && state.current.el) state.current.el.classList.remove("streaming");
 }
 
 function resetTranscript() {
   transcriptEl.innerHTML = "";
   state.current = null;
-  state.nextObjection = false;
   state.autoScroll = true;
-  stageTopic.textContent = t("transcriptEmptyTitle");
-  stageTopic.removeAttribute("data-i18n");
+  finishedBar.hidden = true;
+  hideComposer();
+  arenaTopic.textContent = t("transcriptEmptyTitle");
+  arenaFormat.textContent = formatLabel(state.format || "ai_vs_ai");
 }
 
 function badge(key, variant) {
@@ -248,8 +343,8 @@ function badge(key, variant) {
 }
 
 function addTopic(topic) {
-  stageTopic.textContent = topic;
-  stageTopic.removeAttribute("data-i18n");
+  if (!topic) return;
+  arenaTopic.textContent = topic;
   const el = document.createElement("article");
   el.className = "message moderator";
   const head = document.createElement("div");
@@ -264,35 +359,46 @@ function addTopic(topic) {
   body.textContent = topic;
   el.append(head, body);
   transcriptEl.append(el);
+  state.current = null;
   maybeScroll(true);
 }
 
 function addTurn(ev) {
   clearStreaming();
-  const speaker = ev.speaker === "moderator" ? "moderator" : ev.speaker;
   const el = document.createElement("article");
-  const isModerator = speaker === "moderator";
-  el.className = "message " + (isModerator ? "moderator" : speaker === "solidarity_us" ? "us" : "ddr");
-  const objection = !isModerator && state.nextObjection;
-  if (objection) el.classList.add("objection");
+  el.className = "message " + speakerClass(ev.speaker, ev.human);
+  if (ev.section === "closing") el.classList.add("closing");
+  if (ev.speaker === "human") el.classList.add("self");
 
   const head = document.createElement("div");
   head.className = "msg-head";
   const speakerEl = document.createElement("span");
   speakerEl.className = "msg-speaker";
-  speakerEl.dataset.i18n = labelKey(speaker);
-  speakerEl.textContent = t(labelKey(speaker));
+  const key = speakerKey(ev.speaker);
+  if (key) {
+    speakerEl.dataset.i18n = key;
+    speakerEl.textContent = t(key);
+  } else {
+    speakerEl.textContent = ev.label || ev.speaker || "";
+  }
   head.append(speakerEl);
-  if (objection) head.append(badge("badgeObjection", "objection"));
+  if (ev.section === "closing") head.append(badge("badgeClosing", "auto"));
+  if (ev.auto) head.append(badge("badgeAuto", "auto"));
 
   const body = document.createElement("div");
   body.className = "msg-body";
   el.append(head, body);
   transcriptEl.append(el);
 
-  state.current = { el, body, kind: "turn", lastJointSpeaker: null, lastJointSpan: null };
-  state.nextObjection = false;
-  el.classList.add("streaming");
+  state.current = {
+    el,
+    body,
+    speaker: ev.speaker,
+    section: ev.section || "turn",
+    lastJointSpeaker: null,
+    lastJointSpan: null,
+  };
+  if (state.running && !state.replaying) el.classList.add("streaming");
   maybeScroll(true);
 }
 
@@ -311,29 +417,36 @@ function addJoint() {
   body.className = "msg-body";
   el.append(head, body);
   transcriptEl.append(el);
-  state.current = { el, body, kind: "joint", lastJointSpeaker: null, lastJointSpan: null };
-  el.classList.add("streaming");
+  state.current = {
+    el,
+    body,
+    speaker: "joint",
+    section: "joint",
+    lastJointSpeaker: null,
+    lastJointSpan: null,
+  };
+  if (state.running && !state.replaying) el.classList.add("streaming");
   maybeScroll(true);
 }
 
 function addDelta(ev) {
   if (!state.current) {
-    addTurn({ speaker: ev.speaker === "moderator" ? "moderator" : ev.speaker || "solidarity_us", section: "turn" });
+    addTurn({ speaker: ev.speaker, label: ev.label, section: ev.section, human: ev.human });
   }
-  const current = state.current;
-  if (current.kind === "joint" && (ev.speaker === "solidarity_us" || ev.speaker === "ddr")) {
-    if (current.lastJointSpeaker !== ev.speaker || !current.lastJointSpan) {
+  const cur = state.current;
+  if (cur.section === "joint" && (ev.speaker === "solidarity_us" || ev.speaker === "ddr")) {
+    if (cur.lastJointSpeaker !== ev.speaker || !cur.lastJointSpan) {
       const span = document.createElement("span");
       span.className = "joint-part " + (ev.speaker === "solidarity_us" ? "us" : "ddr");
-      current.body.append(span);
-      current.lastJointSpan = span;
-      current.lastJointSpeaker = ev.speaker;
+      cur.body.append(span);
+      cur.lastJointSpan = span;
+      cur.lastJointSpeaker = ev.speaker;
     }
-    current.lastJointSpan.textContent += ev.text;
+    cur.lastJointSpan.textContent += ev.text || "";
   } else {
-    current.lastJointSpeaker = null;
-    current.lastJointSpan = null;
-    current.body.append(document.createTextNode(ev.text));
+    cur.lastJointSpeaker = null;
+    cur.lastJointSpan = null;
+    cur.body.append(document.createTextNode(ev.text || ""));
   }
   maybeScroll();
 }
@@ -345,19 +458,22 @@ function markInterrupt() {
   if (head && !head.querySelector(".badge.interrupt")) {
     head.append(badge("badgeInterrupt", "interrupt"));
   }
-  state.nextObjection = true;
 }
 
 function addLine(ev) {
-  const speaker = ev.speaker || "solidarity_us";
   const el = document.createElement("article");
-  el.className = "message line " + (speaker === "ddr" ? "ddr" : "us");
+  el.className = "message line " + speakerClass(ev.speaker, ev.human);
   const head = document.createElement("div");
   head.className = "msg-head";
   const speakerEl = document.createElement("span");
   speakerEl.className = "msg-speaker";
-  speakerEl.dataset.i18n = labelKey(speaker);
-  speakerEl.textContent = t(labelKey(speaker));
+  const key = speakerKey(ev.speaker);
+  if (key) {
+    speakerEl.dataset.i18n = key;
+    speakerEl.textContent = t(key);
+  } else {
+    speakerEl.textContent = ev.label || ev.speaker || "";
+  }
   head.append(speakerEl);
   const body = document.createElement("div");
   body.className = "msg-body";
@@ -376,67 +492,134 @@ function addOutcome(outcome) {
   el.textContent = t("outcome_" + outcome);
   transcriptEl.append(el);
   state.current = null;
+  maybeScroll(true);
+}
+
+function addNote({ i18n, text }) {
+  const el = document.createElement("div");
+  el.className = "note";
+  if (i18n) {
+    el.dataset.i18n = i18n;
+    el.textContent = t(i18n);
+  } else {
+    el.textContent = text || "";
+  }
+  transcriptEl.append(el);
   maybeScroll();
 }
 
-function handleEvent(ev) {
-  switch (ev.type) {
-    case "status":
-      if (ev.text) log(ev.text);
-      if (ev.state === "running") setStatus("statusRunning");
-      break;
-    case "topic":
-      addTopic(ev.topic);
-      break;
-    case "turn_start":
-      addTurn(ev);
-      break;
-    case "joint_start":
-      addJoint();
-      break;
-    case "delta":
-      addDelta(ev);
-      break;
-    case "interrupt":
-      markInterrupt();
-      break;
-    case "line":
-      addLine(ev);
-      break;
-    case "outcome":
-      addOutcome(ev.outcome);
-      break;
-    case "error":
-      log("ERROR: " + (ev.text || t("unknownError")));
-      showError(ev.text || t("unknownError"));
-      setStatus("statusError");
-      break;
-    case "end":
-      finish(ev.status);
-      break;
-    default:
-      break;
+function stopTimer() {
+  if (state.timer) {
+    clearInterval(state.timer);
+    state.timer = null;
   }
+}
+
+function updateTimer() {
+  const remaining = Math.max(0, state.deadline - Date.now());
+  const seconds = Math.ceil(remaining / 1000);
+  timerText.textContent = `0:${String(seconds).padStart(2, "0")}`;
+  const ratio = state.timerTotal ? remaining / (state.timerTotal * 1000) : 0;
+  timerBar.style.width = `${Math.max(0, Math.min(100, ratio * 100))}%`;
+  timerEl.classList.toggle("urgent", seconds <= 10);
+  if (remaining <= 0) stopTimer();
+}
+
+function startTimer(seconds) {
+  stopTimer();
+  state.timerTotal = Math.max(1, seconds || 60);
+  state.deadline = Date.now() + state.timerTotal * 1000;
+  updateTimer();
+  state.timer = setInterval(updateTimer, 250);
+}
+
+function hideComposer() {
+  state.awaiting = false;
+  state.pendingAwaitEvent = null;
+  state.awaitEvent = null;
+  composer.hidden = true;
+  suggestionsEl.innerHTML = "";
+  suggestionsEl.hidden = true;
+  stopTimer();
+}
+
+function showComposer(ev) {
+  if (!state.running || state.replaying) return;
+  state.awaiting = true;
+  state.allowAgree = ev.allow_agree !== false;
+  state.awaitEvent = ev;
+  state.pendingAwaitEvent = null;
+  composer.hidden = false;
+  composerAgree.hidden = !state.allowAgree;
+  composerInput.value = "";
+  suggestionsEl.innerHTML = "";
+  suggestionsEl.hidden = true;
+  composerTurn.textContent = t("awaiting");
+  startTimer(ev.seconds || 60);
+  requestAnimationFrame(() => composerInput.focus());
+}
+
+function addSuggestion(ev) {
+  if (!state.awaiting || !ev.text) return;
+  if (suggestionsEl.children.length >= 3) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "suggestion";
+  button.textContent = ev.text;
+  button.addEventListener("click", () => {
+    composerInput.value = ev.text;
+    composerInput.focus();
+  });
+  suggestionsEl.append(button);
+  suggestionsEl.hidden = false;
 }
 
 function finish(status) {
   state.running = false;
-  if (state.es) {
-    state.es.close();
-    state.es = null;
-  }
+  state.replaying = false;
+  state.pendingAwaitEvent = null;
+  hideComposer();
   clearStreaming();
+  closeStream();
   if (status === "done") setStatus("statusDone");
   else if (status === "stopped") setStatus("statusStopped");
   else if (status === "error") setStatus("statusError");
   else setStatus("statusReady");
+  finishedBar.hidden = !["done", "stopped", "error"].includes(status);
   updateButtons();
   loadHistory();
   maybeScroll(true);
 }
 
+function showArena() {
+  home.hidden = true;
+  arena.hidden = false;
+  window.scrollTo(0, 0);
+}
+
+function showHome() {
+  if (state.running) return;
+  home.hidden = false;
+  arena.hidden = true;
+  closeStream();
+  window.scrollTo(0, 0);
+}
+
+function updateButtons() {
+  endBtn.disabled = !state.running || !state.runId;
+  newDebateBtn.disabled = state.running;
+  $$("#export-actions button").forEach((btn) => { btn.disabled = !state.runId; });
+}
+
+function closeStream() {
+  if (state.es) {
+    state.es.close();
+    state.es = null;
+  }
+}
+
 function connect(id) {
-  if (state.es) state.es.close();
+  closeStream();
   const es = new EventSource(`/api/runs/${encodeURIComponent(id)}/stream`);
   state.es = es;
   es.onmessage = (message) => {
@@ -453,55 +636,77 @@ function connect(id) {
     handleEvent(ev);
   };
   es.onerror = () => {
-    if (!state.running && state.es) {
-      state.es.close();
-      state.es = null;
+    if (!state.running) {
+      closeStream();
     }
   };
 }
 
-function updateButtons() {
-  startBtn.disabled = state.running;
-  stopBtn.disabled = !state.running || !state.runId;
-  $$("#export-actions button").forEach((btn) => { btn.disabled = !state.runId; });
-}
-
-function numberValue(id, fallback) {
-  const value = Number.parseFloat($(id).value);
-  return Number.isFinite(value) ? value : fallback;
-}
-
-function intValue(id, fallback) {
-  const value = Number.parseInt($(id).value, 10);
-  return Number.isFinite(value) ? value : fallback;
-}
-
-function collectParams() {
-  const rawDice = $("#dice").value.trim();
-  return {
-    topic: $("#topic").value.trim(),
-    mode: $("#mode").value,
-    turns: intValue("#turns", 7),
-    rotate: intValue("#rotate", 0),
-    agree: $("#agree").checked,
-    outcome: $("#outcome").value,
-    temperature: numberValue("#temperature", 0.8),
-    dice: rawDice === "" ? null : Number.parseFloat(rawDice),
-    auto_launch: $("#auto-launch").checked,
-    context: intValue("#context", 4096),
-    tokens: intValue("#tokens", 160),
-    max_sentences: intValue("#max-sentences", 2),
-    cooldown: intValue("#cooldown", 3),
-    dry: numberValue("#dry", 0.8),
-    repeat_guard: $("#repeat-guard").checked,
-    mix_every: intValue("#mix-every", 1),
-    joint_sentences: intValue("#joint-sentences", 3),
-    accept: numberValue("#accept", 0.35),
-    attempts: intValue("#attempts", 2),
-    patience: intValue("#patience", 4),
-    rage: intValue("#rage", 3),
-    debug: $("#debug").checked,
-  };
+function handleEvent(ev) {
+  switch (ev.type) {
+    case "status":
+      if (ev.text) addLog(ev.text);
+      if (ev.state === "running") setStatus("statusRunning");
+      if (ev.state === "closing") addNote({ i18n: "closing" });
+      break;
+    case "log":
+      addLog(ev.text);
+      break;
+    case "topic":
+      if (ev.mode) {
+        state.format = ev.mode;
+        arenaFormat.textContent = formatLabel(ev.mode);
+      }
+      addTopic(ev.topic);
+      break;
+    case "turn_start":
+      state.pendingAwaitEvent = null;
+      addTurn(ev);
+      break;
+    case "joint_start":
+      addJoint();
+      break;
+    case "delta":
+      state.pendingAwaitEvent = null;
+      addDelta(ev);
+      break;
+    case "interrupt":
+      markInterrupt();
+      break;
+    case "line":
+      addLine(ev);
+      break;
+    case "await_input":
+      if (state.replaying) {
+        state.pendingAwaitEvent = ev;
+      } else {
+        showComposer(ev);
+      }
+      break;
+    case "suggestion":
+      if (!state.replaying) addSuggestion(ev);
+      break;
+    case "timeout":
+      state.pendingAwaitEvent = null;
+      hideComposer();
+      addNote({ i18n: "timeoutNote" });
+      break;
+    case "outcome":
+      state.pendingAwaitEvent = null;
+      hideComposer();
+      addOutcome(ev.outcome);
+      break;
+    case "error":
+      addLog("ERROR: " + (ev.text || t("unknownError")));
+      addNote({ text: ev.text || t("unknownError") });
+      setStatus("statusError");
+      break;
+    case "end":
+      finish(ev.status);
+      break;
+    default:
+      break;
+  }
 }
 
 function errorText(detail) {
@@ -512,106 +717,208 @@ function errorText(detail) {
   return detail ? JSON.stringify(detail) : t("unknownError");
 }
 
+async function postCommand(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(errorText(payload.detail) || response.statusText);
+  }
+  return response.json().catch(() => ({}));
+}
+
+function participantsFor(params) {
+  const format = params.format || "ai_vs_ai";
+  if (format === "ai_vs_ai") return [["solidarity_us", "us"], ["ddr", "ddr"]];
+  if (format === "human_vs_ai" || format === "quick") {
+    const human = params.human_persona || "ddr";
+    const other = human === "ddr" ? "solidarity_us" : "ddr";
+    return [[human, "human", true], [other, other]];
+  }
+  if (format === "human_vs_both") return [["human", "human"], ["solidarity_us", "us"], ["ddr", "ddr"]];
+  if (format === "moderator") return [["moderator", "moderator"], ["solidarity_us", "us"], ["ddr", "ddr"]];
+  return [];
+}
+
+function renderParticipants(params) {
+  arenaParticipants.innerHTML = "";
+  for (const [speaker, cls, isHumanSide] of participantsFor(params)) {
+    const span = document.createElement("span");
+    span.className = "participant " + cls;
+    const key = speakerKey(speaker);
+    span.dataset.i18n = key || "";
+    span.textContent = key ? t(key) : speaker;
+    if (!key) span.removeAttribute("data-i18n");
+    if (isHumanSide) {
+      const suffix = document.createElement("span");
+      suffix.className = "you-mark";
+      suffix.dataset.i18n = "youSuffix";
+      suffix.textContent = t("youSuffix");
+      suffix.style.marginLeft = "4px";
+      suffix.style.color = "var(--muted)";
+      span.append(" ", suffix);
+    }
+    arenaParticipants.append(span);
+  }
+}
+
+function setArenaMeta(params) {
+  state.params = params || {};
+  state.format = state.params.format || "ai_vs_ai";
+  arenaFormat.textContent = formatLabel(state.format);
+  arenaTopic.textContent = state.params.topic || t("transcriptEmptyTitle");
+  renderParticipants(state.params);
+}
+
 async function startRun(event) {
   event.preventDefault();
   if (state.running) return;
-  clearError();
-  const params = collectParams();
+  clearFormError();
+  const params = collectRunParams();
   if (!params.topic) {
-    showError(t("topicRequired"));
-    $("#topic").focus();
+    showFormError(t("topicRequired"));
+    topicInput.focus();
     return;
   }
-  startBtn.disabled = true;
-  stopBtn.disabled = true;
+  startDebateBtn.disabled = true;
   try {
-    const response = await fetch("/api/runs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
-    });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(errorText(payload.detail) || response.statusText);
-    }
-    const data = await response.json();
+    const data = await postCommand("/api/runs", params);
     state.runId = data.id;
     state.running = true;
+    state.replaying = false;
     state.lastSeq = -1;
+    state.pendingAwaitEvent = null;
+    closeModal();
+    showArena();
     resetTranscript();
-    logEl.textContent = "";
+    clearLog();
+    setArenaMeta(params);
+    replayBadge.hidden = true;
     setStatus("statusRunning");
     updateButtons();
     connect(data.id);
     loadHistory();
   } catch (error) {
-    state.running = false;
+    showFormError(String(error.message || error));
     setStatus("statusError");
-    showError(String(error.message || error));
-    updateButtons();
+  } finally {
+    startDebateBtn.disabled = false;
+  }
+}
+
+async function sendInput() {
+  if (!state.awaiting || !state.runId) return;
+  const text = composerInput.value.trim();
+  if (!text) {
+    composerInput.focus();
+    return;
+  }
+  const awaitEvent = state.awaitEvent;
+  state.awaiting = false;
+  composer.hidden = true;
+  stopTimer();
+  try {
+    await postCommand(`/api/runs/${encodeURIComponent(state.runId)}/input`, { text });
+  } catch (error) {
+    addLog(String(error.message || error));
+    if (awaitEvent) {
+      showComposer(awaitEvent);
+      composerInput.value = text;
+    }
+  }
+}
+
+async function agreeRun() {
+  if (!state.awaiting || !state.runId) return;
+  state.awaiting = false;
+  composer.hidden = true;
+  stopTimer();
+  try {
+    await postCommand(`/api/runs/${encodeURIComponent(state.runId)}/action`, { action: "agree" });
+  } catch (error) {
+    addLog(String(error.message || error));
+  }
+}
+
+async function endRun() {
+  if (!state.runId) return;
+  hideComposer();
+  try {
+    await postCommand(`/api/runs/${encodeURIComponent(state.runId)}/action`, { action: "end" });
+  } catch (error) {
+    addLog(String(error.message || error));
   }
 }
 
 async function stopRun() {
   if (!state.runId) return;
-  stopBtn.disabled = true;
-  log(t("stopRequested"));
+  endBtn.disabled = true;
+  addLog(t("stopRequested"));
   try {
-    const response = await fetch(`/api/runs/${encodeURIComponent(state.runId)}/stop`, { method: "POST" });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(errorText(payload.detail) || response.statusText);
-    }
+    await postCommand(`/api/runs/${encodeURIComponent(state.runId)}/stop`, {});
   } catch (error) {
-    showError(String(error.message || error));
+    addLog(String(error.message || error));
     updateButtons();
   }
 }
 
 function replayRecord(record) {
-  resetTranscript();
-  logEl.textContent = "";
+  state.replaying = true;
   state.lastSeq = -1;
-  state.nextObjection = false;
+  state.pendingAwaitEvent = null;
+  resetTranscript();
+  setArenaMeta(record.params || {});
+  replayBadge.hidden = false;
   for (const ev of record.events || []) {
     if (typeof ev.seq === "number") state.lastSeq = Math.max(state.lastSeq, ev.seq);
     handleEvent(ev);
   }
-  if (!record.events || !record.events.some((ev) => ev.type === "end")) {
-    finish(record.status === "running" ? "running" : record.status);
-  }
+  state.replaying = false;
+  return record;
 }
 
 async function openRun(id) {
   if (state.running && id !== state.runId) return;
-  clearError();
+  clearFormError();
   try {
     const response = await fetch(`/api/runs/${encodeURIComponent(id)}`);
     if (!response.ok) throw new Error(response.statusText);
     const record = await response.json();
     state.runId = id;
     state.running = record.status === "running" || record.status === "starting";
+    if (!state.running) closeStream();
+    showArena();
     replayRecord(record);
     if (state.running) {
       setStatus("statusRunning");
+      updateButtons();
       connect(id);
+      if (state.pendingAwaitEvent) showComposer(state.pendingAwaitEvent);
+    } else if (!(record.events || []).some((ev) => ev.type === "end")) {
+      finish(record.status);
+    } else {
+      updateButtons();
     }
-    updateButtons();
-    renderHistory();
+    setArenaMeta(record.params || {});
+    replayBadge.hidden = false;
+    closeDrawer();
   } catch (error) {
-    showError(String(error.message || error));
+    addLog(String(error.message || error));
   }
 }
 
 function renderHistory() {
-  const list = $("#history-list");
-  if (!list) return;
-  list.innerHTML = "";
+  if (!historyList) return;
+  historyList.innerHTML = "";
   if (!state.history.length) {
     const item = document.createElement("li");
     item.className = "muted";
+    item.dataset.i18n = "historyEmpty";
     item.textContent = t("historyEmpty");
-    list.append(item);
+    historyList.append(item);
     return;
   }
   for (const run of state.history) {
@@ -624,20 +931,24 @@ function renderHistory() {
     topic.textContent = run.topic || "—";
     const meta = document.createElement("span");
     meta.className = "history-meta";
-    const when = run.created ? new Date(run.created * 1000).toLocaleString(state.lang === "de" ? "de-DE" : "en-US", { dateStyle: "short", timeStyle: "short" }) : "";
-    const statusKey = {
+    const when = run.created
+      ? new Date(run.created * 1000).toLocaleString(state.lang === "de" ? "de-DE" : "en-US", {
+          dateStyle: "short",
+          timeStyle: "short",
+        })
+      : "";
+    const outcome = run.outcome ? t("outcome_" + run.outcome) : t({
       done: "statusDone",
       running: "statusRunning",
       starting: "statusRunning",
       stopped: "statusStopped",
       error: "statusError",
-    }[run.status] || "statusReady";
-    const outcome = run.outcome ? t("outcome_" + run.outcome) : t(statusKey);
-    meta.textContent = [run.mode, outcome, when].filter(Boolean).join(" · ");
+    }[run.status] || "statusReady");
+    meta.textContent = [formatLabel(run.format || "ai_vs_ai"), outcome, when].filter(Boolean).join(" · ");
     button.append(topic, meta);
     button.addEventListener("click", () => openRun(run.id));
     item.append(button);
-    list.append(item);
+    historyList.append(item);
   }
 }
 
@@ -653,21 +964,79 @@ async function loadHistory() {
   }
 }
 
-async function randomTopic() {
-  try {
-    const response = await fetch("/api/scenarios");
-    if (!response.ok) return;
-    const data = await response.json();
-    const scenarios = data.scenarios || [];
-    if (scenarios.length) {
-      $("#topic").value = scenarios[Math.floor(Math.random() * scenarios.length)];
-    }
-  } catch {
-    /* ignore */
-  }
+function openDrawer() {
+  historyDrawer.hidden = false;
+  scrim.hidden = false;
+  loadHistory();
 }
 
-async function exportRuns(format) {
+function closeDrawer() {
+  historyDrawer.hidden = true;
+  scrim.hidden = true;
+}
+
+function updateFormatUI(format) {
+  formatInput.value = format;
+  $$("#format-picker button").forEach((btn) => btn.classList.toggle("active", btn.dataset.format === format));
+  aiOptions.hidden = format !== "ai_vs_ai";
+  sideField.hidden = !(format === "human_vs_ai" || format === "quick");
+  humanOptions.hidden = format === "ai_vs_ai";
+  exchangesField.hidden = format === "moderator";
+  const quick = format === "quick";
+  exchangesInput.disabled = quick || format === "moderator";
+  if (quick) exchangesInput.value = "4";
+  suggestionsField.hidden = !(format === "human_vs_ai" || format === "quick");
+  if (suggestionsField.hidden) suggestionsInput.checked = false;
+  else suggestionsInput.checked = true;
+  modalTitle.dataset.i18n = FORMAT_KEYS[format] || "chooseMode";
+  modalTitle.textContent = formatLabel(format);
+}
+
+function openModal(format) {
+  clearFormError();
+  updateFormatUI(format || "ai_vs_ai");
+  topicInput.value = "";
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => topicInput.focus());
+}
+
+function closeModal() {
+  modal.hidden = true;
+  document.body.style.overflow = "";
+}
+
+function collectRunParams() {
+  const format = formatInput.value;
+  const params = {
+    topic: topicInput.value.trim(),
+    format,
+    auto_launch: autoLaunchInput.checked,
+    turn_seconds: Number.parseInt(turnSecondsInput.value, 10) || 60,
+  };
+  if (format === "ai_vs_ai") {
+    params.mode = aiModeInput.value;
+    params.turns = clamp(Number.parseInt(aiTurnsInput.value, 10) || 7, 2, 40);
+    params.outcome = aiOutcomeInput.value;
+  } else {
+    params.exchanges = format === "quick"
+      ? 4
+      : clamp(Number.parseInt(exchangesInput.value, 10) || 4, 1, 50);
+    if (format === "human_vs_ai" || format === "quick") {
+      params.human_persona = document.querySelector('input[name="side"]:checked')?.value || "ddr";
+      params.suggestions = suggestionsInput.checked;
+    } else {
+      params.suggestions = false;
+    }
+  }
+  return params;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function exportRun(format) {
   if (!state.runId) return;
   window.location.href = `/api/runs/${encodeURIComponent(state.runId)}/export?format=${encodeURIComponent(format)}`;
 }
@@ -678,15 +1047,45 @@ function init() {
   setStatus("statusReady");
   loadHistory();
 
-  $("#run-form").addEventListener("submit", startRun);
-  stopBtn.addEventListener("click", stopRun);
-  $("#random-topic").addEventListener("click", randomTopic);
-  $("#refresh-history").addEventListener("click", loadHistory);
-  $("#temperature").addEventListener("input", (event) => {
-    $("#temperature-out").textContent = event.target.value;
+  $("#new-debate-form").addEventListener("submit", startRun);
+  newDebateBtn.addEventListener("click", () => openModal(state.format || "ai_vs_ai"));
+  $("#finished-new").addEventListener("click", () => openModal(state.format || "ai_vs_ai"));
+  $("#modal-close").addEventListener("click", closeModal);
+  $("#cancel-modal").addEventListener("click", closeModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
   });
+
+  $("#brand-home").addEventListener("click", (event) => {
+    event.preventDefault();
+    showHome();
+  });
+
+  $$(".mode-card").forEach((card) => {
+    card.addEventListener("click", () => openModal(card.dataset.format));
+  });
+  $$("#format-picker button").forEach((btn) => {
+    btn.addEventListener("click", () => updateFormatUI(btn.dataset.format));
+  });
+
+  endBtn.addEventListener("click", stopRun);
+  composerSend.addEventListener("click", sendInput);
+  composerAgree.addEventListener("click", agreeRun);
+  composerEnd.addEventListener("click", endRun);
+  composerInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendInput();
+    }
+  });
+
+  $("#history-btn").addEventListener("click", openDrawer);
+  $("#history-close").addEventListener("click", closeDrawer);
+  scrim.addEventListener("click", closeDrawer);
+  $("#refresh-history").addEventListener("click", loadHistory);
+
   $$("#export-actions button").forEach((btn) => {
-    btn.addEventListener("click", () => exportRuns(btn.dataset.export));
+    btn.addEventListener("click", () => exportRun(btn.dataset.export));
   });
   $$(".lang-switch button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -695,9 +1094,10 @@ function init() {
       applyI18n();
     });
   });
-  transcriptEl.addEventListener("scroll", () => {
-    const distance = transcriptEl.scrollHeight - transcriptEl.scrollTop - transcriptEl.clientHeight;
-    state.autoScroll = distance < 90;
+
+  const wrap = transcriptEl.parentElement;
+  wrap.addEventListener("scroll", () => {
+    state.autoScroll = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 90;
   });
 }
 

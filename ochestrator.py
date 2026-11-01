@@ -65,6 +65,11 @@ FALLBACK_LINES = {
         "Das Gespräch braucht Klarheit, nicht Ausflüchte.",
         "Die Gemeinschaft verlangt Verantwortung, nicht leere Worte.",
     ],
+    MODERATOR: [
+        "Ich möchte an dieser Stelle eine klare Antwort.",
+        "Bleiben wir bei der Frage: Wie stehen Sie dazu?",
+        "Bitte begründen Sie Ihre Position.",
+    ],
 }
 
 def extract_moderator(prompt):
@@ -1020,9 +1025,9 @@ if __name__ == "__main__":
     OPTS = parse_args()
     SESSION = OPTS.session
     if SESSION:
-        for stream in (sys.stdin, sys.stdout):
+        for handle in (sys.stdin, sys.stdout):
             try:
-                stream.reconfigure(encoding="utf-8")
+                handle.reconfigure(encoding="utf-8")
             except (AttributeError, OSError):
                 pass
     if OPTS.debug and not SESSION:

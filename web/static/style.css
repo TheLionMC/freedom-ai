@@ -323,6 +323,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
   text-transform: none;
 }
 html[lang="en"] .message.human .msg-speaker::after { content: "· you"; }
+.message.human.self .msg-speaker::after { content: none; }
 
 .badge {
   display: inline-block;
