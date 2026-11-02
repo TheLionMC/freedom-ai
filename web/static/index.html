@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Freiheit im Gespräch</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/" id="brand-home">
-    </a>
+    <div class="brand">
+      <span class="brand-text"><strong data-i18n="brandTitle">Freiheit im Gespräch</strong></span>
+    </div>
     <nav class="topbar-actions">
       <button type="button" class="ghost" id="history-btn" data-i18n="history">Verlauf</button>
       <button type="button" class="primary small" id="new-debate-btn" data-i18n="newDebate">Neue Debatte</button>
@@ -18,72 +19,106 @@
         <button type="button" data-lang="en">EN</button>
       </div>
       <div class="status-pill" id="status-pill">
-        <span class="dot"></span>
         <span id="status-text" data-i18n="statusReady">Bereit</span>
       </div>
     </nav>
   </header>
 
   <main class="shell">
-    <section class="home" id="home">
-      <div class="hero">
-        <span class="eyebrow" data-i18n="homeKicker">Debattenarena</span>
-        <h1 data-i18n="homeTitle">Streite mit zwei trainierten Stimmen.</h1>
-        <p data-i18n="homeSubtitle">Wähle ein Format, gib ein Thema vor und debattiere live gegen Solidarität (USA), die DDR – oder gegen beide.</p>
-      </div>
-
-      <div class="mode-grid">
-        <button type="button" class="mode-card" data-format="ai_vs_ai">
-          <span class="mode-index">01</span>
-          <span class="mode-name" data-i18n="modeAI">KI gegen KI</span>
-          <span class="mode-desc" data-i18n="modeAIDesc">Beide Modelle debattieren autonom, bis sie sich einig oder klar uneinig sind.</span>
-          <span class="mode-arrow" aria-hidden="true">→</span>
-        </button>
-        <button type="button" class="mode-card" data-format="human_vs_ai">
-          <span class="mode-index">02</span>
-          <span class="mode-name" data-i18n="modeHumanAI">Du gegen eine KI</span>
-          <span class="mode-desc" data-i18n="modeHumanAIDesc">Wähle eine Seite und antworte. Die KI führt das Gespräch zu Einigung oder Uneinigkeit.</span>
-          <span class="mode-arrow" aria-hidden="true">→</span>
-        </button>
-        <button type="button" class="mode-card" data-format="human_vs_both">
-          <span class="mode-index">03</span>
-          <span class="mode-name" data-i18n="modeHumanBoth">Du gegen beide KIs</span>
-          <span class="mode-desc" data-i18n="modeHumanBothDesc">Eine Aussage von dir, beide Stimmen antworten. Endet bei Einigung oder klarer Uneinigkeit.</span>
-          <span class="mode-arrow" aria-hidden="true">→</span>
-        </button>
-        <button type="button" class="mode-card" data-format="moderator">
-          <span class="mode-index">04</span>
-          <span class="mode-name" data-i18n="modeModerator">Du moderierst</span>
-          <span class="mode-desc" data-i18n="modeModeratorDesc">Du stellst die Fragen, beide KIs antworten. Endet bei Einigung oder klarer Uneinigkeit.</span>
-          <span class="mode-arrow" aria-hidden="true">→</span>
-        </button>
-        <button type="button" class="mode-card accent" data-format="quick">
-          <span class="mode-index">05</span>
-          <span class="mode-name" data-i18n="modeQuick">Schnellduell</span>
-          <span class="mode-desc" data-i18n="modeQuickDesc">Max. vier Runden, dann Abschlussstatements. Einigung oder klare Uneinigkeit beendet es früher.</span>
-          <span class="mode-arrow" aria-hidden="true">→</span>
-        </button>
-      </div>
-
-      <div class="home-foot">
-        <article class="voice voice-us">
-          <span class="voice-mark"></span>
+    <section class="arena" id="arena">
+      <section class="setup-panel" id="setup-panel" aria-labelledby="setup-title">
+        <div class="setup-head">
           <div>
-            <h3 data-i18n="personaUS">Solidarität (USA)</h3>
-            <p data-i18n="personaUSDesc">Freiheit, Eigenverantwortung und offene Debatte.</p>
+            <h1 id="setup-title" data-i18n="newDebate">Neue Debatte</h1>
+            <p class="setup-intro" data-i18n="setupIntro">Wähle ein Format und gib ein Thema vor.</p>
           </div>
-        </article>
-        <article class="voice voice-ddr">
-          <span class="voice-mark"></span>
-          <div>
-            <h3 data-i18n="personaDDR">DDR</h3>
-            <p data-i18n="personaDDRDesc">Gemeinschaft, Ordnung und soziale Sicherheit.</p>
-          </div>
-        </article>
-      </div>
-    </section>
+          <button type="button" class="ghost small" id="cancel-setup" data-i18n="cancel" hidden>Abbrechen</button>
+        </div>
+        <form id="new-debate-form">
+          <label class="field">
+            <span data-i18n="chooseMode">Format wählen</span>
+            <select id="format-input">
+              <option value="ai_vs_ai" data-i18n="modeAI">KI gegen KI</option>
+              <option value="human_vs_ai" data-i18n="modeHumanAI">Du gegen eine KI</option>
+              <option value="human_vs_both" data-i18n="modeHumanBoth">Du gegen beide KIs</option>
+              <option value="moderator" data-i18n="modeModerator">Du moderierst</option>
+              <option value="quick" data-i18n="modeQuick">Schnellduell</option>
+            </select>
+          </label>
 
-    <section class="arena" id="arena" hidden>
+          <label class="field">
+            <span data-i18n="topicLabel">Thema</span>
+            <textarea id="topic-input" rows="2" maxlength="500" required
+                      data-i18n-placeholder="topicPlaceholder"
+                      placeholder="Wenn das Land angegriffen wird, wäre es okay, das Land zu verlassen?"></textarea>
+          </label>
+
+          <details class="advanced-options">
+            <summary data-i18n="advancedSettings">Weitere Einstellungen</summary>
+            <fieldset class="field side-field" id="side-field">
+              <legend data-i18n="chooseSide">Deine Seite</legend>
+              <div class="side-options">
+                <label class="side-option side-us">
+                  <input type="radio" name="side" value="solidarity_us">
+                  <span data-i18n="personaUS">Solidarität (USA)</span>
+                </label>
+                <label class="side-option side-ddr">
+                  <input type="radio" name="side" value="ddr" checked>
+                  <span data-i18n="personaDDR">DDR</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <label class="field human-options" id="human-options">
+              <span data-i18n="turnSeconds">Zeit pro Antwort</span>
+              <select id="turn-seconds-input">
+                <option value="30">30 s</option>
+                <option value="60" selected>60 s</option>
+                <option value="90">90 s</option>
+                <option value="120">120 s</option>
+              </select>
+            </label>
+
+            <label class="check" id="suggestions-field">
+              <input type="checkbox" id="suggestions-input" checked>
+              <span data-i18n="suggestionsLabel">Antwortvorschläge meiner Seite anzeigen</span>
+            </label>
+
+            <div class="ai-options" id="ai-options">
+              <label class="field">
+                <span data-i18n="debateMode">Gesprächsmodus</span>
+                <select id="ai-mode-input">
+                  <option value="polite" data-i18n="modePolite">Höflich</option>
+                  <option value="free" selected data-i18n="modeFree">Frei</option>
+                  <option value="chaos" data-i18n="modeChaos">Chaotisch</option>
+                </select>
+              </label>
+              <label class="field">
+                <span data-i18n="outcome">Ergebnis</span>
+                <select id="ai-outcome-input">
+                  <option value="auto" selected data-i18n="outcomeAuto">Automatisch</option>
+                  <option value="agree" data-i18n="outcomeAgree">Einigung erzwingen</option>
+                  <option value="disagree" data-i18n="outcomeDisagree">Uneinig bleiben</option>
+                  <option value="angry" data-i18n="outcomeAngry">Eskalation</option>
+                  <option value="random" data-i18n="outcomeRandom">Zufällig</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="check">
+              <input type="checkbox" id="auto-launch-input" checked>
+              <span data-i18n="autoLaunch">llama-server automatisch starten</span>
+            </label>
+            <p class="hint" data-i18n="autoLaunchHint">Ausgeschaltet werden bereits laufende Server auf Port 8081/8082 genutzt.</p>
+          </details>
+
+          <p class="form-error" id="form-error" hidden></p>
+          <div class="setup-actions">
+            <button type="submit" class="primary" id="start-debate" data-i18n="startDebate">Debatte starten</button>
+          </div>
+        </form>
+      </section>
+
       <div class="arena-head">
         <div class="arena-title">
           <div class="arena-meta">
@@ -107,7 +142,6 @@
         <div id="transcript" class="transcript"></div>
         <div class="finished-bar" id="finished-bar" hidden>
           <span data-i18n="finished">Debatte beendet.</span>
-          <button type="button" class="primary small" id="finished-new" data-i18n="newDebateAfter">Neue Debatte</button>
         </div>
       </div>
 
@@ -145,111 +179,13 @@
         <button type="button" class="icon-btn" id="history-close" aria-label="Close">×</button>
       </div>
     </div>
+    <p class="history-error" id="history-error" role="status" hidden></p>
     <ul id="history-list" class="history-list">
       <li class="muted" data-i18n="historyEmpty">Noch keine Debatten gespeichert.</li>
     </ul>
   </aside>
   <div class="scrim" id="scrim" hidden></div>
 
-  <div class="modal" id="new-debate-modal" hidden>
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div class="modal-head">
-        <div>
-          <span class="eyebrow" data-i18n="newDebate">Neue Debatte</span>
-          <h2 id="modal-title" data-i18n="chooseMode">Format wählen</h2>
-        </div>
-        <button type="button" class="icon-btn" id="modal-close" aria-label="Close">×</button>
-      </div>
-
-      <form id="new-debate-form">
-        <input type="hidden" id="format-input" value="ai_vs_ai">
-
-        <div class="format-picker" id="format-picker">
-          <button type="button" data-format="ai_vs_ai" class="active" data-i18n="modeAI">KI gegen KI</button>
-          <button type="button" data-format="human_vs_ai" data-i18n="modeHumanAI">Du gegen eine KI</button>
-          <button type="button" data-format="human_vs_both" data-i18n="modeHumanBoth">Du gegen beide KIs</button>
-          <button type="button" data-format="moderator" data-i18n="modeModerator">Du moderierst</button>
-          <button type="button" data-format="quick" data-i18n="modeQuick">Schnellduell</button>
-        </div>
-
-        <label class="field">
-          <span data-i18n="topicLabel">Thema</span>
-          <textarea id="topic-input" rows="3" maxlength="500" required
-                    data-i18n-placeholder="topicPlaceholder"
-                    placeholder="Wenn das Land angegriffen wird, wäre es okay, das Land zu verlassen?"></textarea>
-        </label>
-
-        <fieldset class="field side-field" id="side-field">
-          <legend data-i18n="chooseSide">Deine Seite</legend>
-          <div class="side-options">
-            <label class="side-option side-us">
-              <input type="radio" name="side" value="solidarity_us">
-              <span data-i18n="personaUS">Solidarität (USA)</span>
-            </label>
-            <label class="side-option side-ddr">
-              <input type="radio" name="side" value="ddr" checked>
-              <span data-i18n="personaDDR">DDR</span>
-            </label>
-          </div>
-        </fieldset>
-
-        <div class="grid2" id="human-options">
-          <label class="field">
-            <span data-i18n="turnSeconds">Zeit pro Antwort</span>
-            <select id="turn-seconds-input">
-              <option value="30">30 s</option>
-              <option value="60" selected>60 s</option>
-              <option value="90">90 s</option>
-              <option value="120">120 s</option>
-            </select>
-          </label>
-        </div>
-
-        <label class="check" id="suggestions-field">
-          <input type="checkbox" id="suggestions-input" checked>
-          <span data-i18n="suggestionsLabel">Antwortvorschläge meiner Seite anzeigen</span>
-        </label>
-
-        <div class="ai-options" id="ai-options">
-          <div class="grid2">
-            <label class="field">
-              <span data-i18n="debateMode">Gesprächsmodus</span>
-              <select id="ai-mode-input">
-                <option value="polite" data-i18n="modePolite">Höflich</option>
-                <option value="free" selected data-i18n="modeFree">Frei</option>
-                <option value="chaos" data-i18n="modeChaos">Chaotisch</option>
-              </select>
-            </label>
-            <label class="field">
-              <span data-i18n="outcome">Ergebnis</span>
-              <select id="ai-outcome-input">
-                <option value="auto" selected data-i18n="outcomeAuto">Automatisch</option>
-                <option value="agree" data-i18n="outcomeAgree">Einigung erzwingen</option>
-                <option value="disagree" data-i18n="outcomeDisagree">Uneinig bleiben</option>
-                <option value="angry" data-i18n="outcomeAngry">Eskalation</option>
-                <option value="random" data-i18n="outcomeRandom">Zufällig</option>
-              </select>
-            </label>
-          </div>
-        </div>
-        <p class="hint" data-i18n="autoEndHint">Endet automatisch bei Einigung oder klarer Uneinigkeit.</p>
-
-        <label class="check">
-          <input type="checkbox" id="auto-launch-input" checked>
-          <span data-i18n="autoLaunch">llama-server automatisch starten</span>
-        </label>
-        <p class="hint" data-i18n="autoLaunchHint">Ausgeschaltet werden bereits laufende Server auf Port 8081/8082 genutzt.</p>
-
-        <p class="form-error" id="form-error" hidden></p>
-
-        <div class="modal-actions">
-          <button type="button" class="ghost" id="cancel-modal" data-i18n="cancel">Abbrechen</button>
-          <button type="submit" class="primary" id="start-debate" data-i18n="startDebate">Debatte starten</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>

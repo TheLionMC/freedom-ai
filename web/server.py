@@ -34,7 +34,6 @@ LABEL_TO_PERSONA = {label: persona for persona, label in PERSONA_LABELS.items()}
 LABEL_TO_PERSONA[MODERATOR_LABEL] = "moderator"
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
-ANSI_SPLIT_RE = re.compile(r"(\x1b\[(?:0|91|92)m)")
 DEBUG_SCORE_RE = re.compile(r"\s*\[p=[0-9.]+\]")
 DEBUG_TEST_RE = re.compile(r"\n\n\[Einigungs-Test p=[0-9.]+\]")
 TOPIC_RE = re.compile(r"=== (.*?) \((polite|free|chaos)\) ===")
@@ -61,7 +60,7 @@ class OrchestratorParser:
         self.state = "idle"
         self.speaker: str | None = None
         self.section = "turn"
-        self.joint_speaker = "joint"
+        self.ansi_state = 0
 
     def feed(self, chunk: str) -> list[dict[str, Any]]:
         self.buf += chunk
@@ -123,7 +122,6 @@ class OrchestratorParser:
             self.state = "joint"
             self.section = "joint"
             self.speaker = "joint"
-            self.joint_speaker = "joint"
             return [{"type": "joint_start"}]
         if kind in ("agree", "disagree", "angry"):
             outcome = kind
@@ -166,8 +164,6 @@ class OrchestratorParser:
         return events
 
     def _turn(self, raw: str) -> list[dict[str, Any]]:
-        # Never rstrip streaming chunks: a chunk may end in a space that belongs
-        # between two words, and the next chunk starts with the following word.
         interrupted = raw.rstrip().endswith(" \u2014")
         if interrupted:
             raw = raw.rstrip()[:-2]
@@ -179,23 +175,21 @@ class OrchestratorParser:
         return events
 
     def _joint(self, raw: str) -> list[dict[str, Any]]:
-        events: list[dict[str, Any]] = []
-        for part in ANSI_SPLIT_RE.split(raw):
-            if not part:
-                continue
-            if part == "\x1b[92m":
-                self.joint_speaker = "solidarity_us"
-                continue
-            if part == "\x1b[91m":
-                self.joint_speaker = "ddr"
-                continue
-            if part == "\x1b[0m":
-                self.joint_speaker = "joint"
-                continue
-            text = ANSI_RE.sub("", part)
-            if text:
-                events.append({"type": "delta", "speaker": self.joint_speaker, "text": text, "section": "joint"})
-        return events
+        text = []
+        for char in raw:
+            if self.ansi_state == 1:
+                self.ansi_state = 2 if char == "[" else 0
+            elif self.ansi_state == 2:
+                if "@" <= char <= "~":
+                    self.ansi_state = 0
+            elif char == "\x1b":
+                self.ansi_state = 1
+            else:
+                text.append(char)
+        plain = "".join(text)
+        if not plain:
+            return []
+        return [{"type": "delta", "speaker": "joint", "text": plain, "section": "joint"}]
 
 
 class RunParams(BaseModel):
@@ -220,10 +214,10 @@ class RunParams(BaseModel):
     dry: float = Field(0.8, ge=0.0, le=5.0)
     repeat_guard: bool = True
     mix_every: int = Field(1, ge=1, le=20)
-    joint_sentences: int = Field(3, ge=1, le=10)
+    joint_sentences: int = Field(1, ge=1, le=10)
     accept: float = Field(0.35, ge=0.0, le=1.0)
     attempts: int = Field(2, ge=1, le=10)
-    patience: int = Field(4, ge=1, le=20)
+    patience: int = Field(7, ge=1, le=20)
     rage: int = Field(3, ge=1, le=10)
     debug: bool = False
 

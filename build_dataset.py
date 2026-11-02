@@ -75,7 +75,6 @@ def build(e):
             "persona": p, "scenario": e["scenario"]}
 
 def assign_splits(rows):
-    # Split within persona/type, so every test file keeps interrupt and wait examples.
     step = max(1, round(1 / TEST_FRACTION))
     groups = {}
     for row in rows:

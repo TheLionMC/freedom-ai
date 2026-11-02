@@ -1,4 +1,4 @@
-import argparse, asyncio, json, math, os, random, re, subprocess, sys, threading, time
+import argparse, asyncio, json, math, os, random, re, shutil, subprocess, sys, threading, time
 from collections import Counter
 from contextlib import ExitStack, aclosing, redirect_stdout, suppress
 from pathlib import Path
@@ -8,7 +8,16 @@ import httpx
 from shared import MODERATOR, INTERRUPT, WAIT, render
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_SERVER = Path(__file__).resolve().parent / "llama.cpp" / "bin" / "llama-server.exe"
+SERVER_CANDIDATES = (
+    ROOT / "llama.cpp" / "bin" / "llama-server.exe",
+    ROOT / "llama.cpp" / "build" / "bin" / "Release" / "llama-server.exe",
+    ROOT / "llama.cpp" / "build" / "bin" / "Debug" / "llama-server.exe",
+    ROOT / "llama.cpp" / "build" / "bin" / "llama-server.exe",
+)
+DEFAULT_SERVER = next((path for path in SERVER_CANDIDATES if path.is_file()), None)
+if DEFAULT_SERVER is None:
+    DEFAULT_SERVER = Path(shutil.which("llama-server") or SERVER_CANDIDATES[0])
+MIN_ROUNDS_BEFORE_OUTCOME = 3
 
 PERSONAS = {   # insertion order = speaking order; solidarity_us opens
     "solidarity_us": {"port": 8081, "label": "SOLIDARITÄT (USA)"},
@@ -50,7 +59,7 @@ FALLBACK_SCENARIOS = [
 ]
 MODERATOR_RE = re.compile(r"<\|im_start\|>Moderator\n(.*?)<\|im_end\|>", re.DOTALL)
 
-AGREE_OPENERS = ["Wir sind uns einig:", "Darin stimmen wir überein:", "Gemeinsam sagen wir:"]
+AGREE_OPENERS = ["Wir sind uns einig:", "Darin stimmen wir überein:"]
 DISAGREE_OPENERS = ["Wir bleiben uneins, aber", "Wir sehen es verschieden, doch"]
 FALLBACK_INTERRUPT_OPENERS = ["Moment,", "Das stimmt so nicht,", "Halt,", "Nein,"]
 
@@ -178,11 +187,148 @@ DISAGREE_LINES = {
 
 
 # ---------- pure helpers ----------
+TOPIC_STOPWORDS = {
+    "aber", "alle", "alles", "als", "also", "andere", "auch", "auf", "aus",
+    "bei", "bin", "bis", "dabei", "damit", "das", "dass", "dein", "dem",
+    "den", "denn", "der", "des", "die", "dies", "diese", "dieser", "dieses",
+    "doch", "dort", "du", "durch", "eine", "einem", "einen", "einer", "eines",
+    "ein", "er", "es", "etwas", "für", "gegen", "gegenüber", "gibt", "haben",
+    "hat", "hier", "ich", "ihm", "ihn", "ihr", "ihre", "im", "in", "ist",
+    "keine", "kann", "man", "manchmal", "mehr", "mich", "mit", "muss", "nach",
+    "nicht", "noch", "oder", "sein", "sich", "sie", "sind", "so", "soll",
+    "sollte", "sollten", "bleiben", "um", "und", "uns", "unser", "unter", "vom", "von", "vor",
+    "war", "warum", "was", "welche", "welcher", "welches", "wenn", "wer",
+    "wie", "wieder", "wir", "wird", "wo", "zu", "zum", "zur",
+}
+
+
+def topic_terms(scenario):
+    terms = []
+    for word in _words(scenario):
+        if len(word) >= 4 and word not in TOPIC_STOPWORDS and word not in terms:
+            terms.append(word)
+    return terms
+
+
+def topic_coverage(text, scenario):
+    words = _words(text)
+    matches = {
+        term for term in topic_terms(scenario)
+        if any(word.startswith(term[:4]) or term.startswith(word[:4]) for word in words)
+    }
+    return len(matches), matches
+
+
+def answers_topic(text, scenario):
+    terms = topic_terms(scenario)
+    roots = {term[:4] for term in terms}
+    if {"geho", "staa", "pfli", "verb"} <= roots:
+        return topic_coverage(text, scenario)[0] >= 4
+    minimum = min(2, len(terms))
+    return minimum == 0 or topic_coverage(text, scenario)[0] >= minimum
+
+
+def topic_fallback(speaker, scenario, transcript=()):
+    terms = topic_terms(scenario)
+    roots = {term[:4] for term in terms}
+    if {"geho", "staa", "pfli", "verb"} <= roots:
+        if speaker == "solidarity_us":
+            choices = (
+                "Gehorsam gegenüber dem Staat ist nicht immer Pflicht; bei einem Verbrechen des Staates kann Widerstand geboten sein.",
+                "Gehorsam ist keine Pflicht, wenn der Staat Unrecht verlangt; verbrecherischer Gehorsam kann Widerstand verlangen.",
+            )
+        else:
+            choices = (
+                "Gehorsam gegenüber dem Staat kann Pflicht sein, solange er das Recht schützt; verbrecherisch wird er, wenn er Unrecht verlangt.",
+                "Gehorsam kann dem Gemeinwohl dienen; verbrecherisch wird er, wenn der Staat selbst das Recht bricht.",
+            )
+    elif {"verf", "helf"} <= roots and {"gese", "verst"} & roots:
+        if speaker == "solidarity_us":
+            choices = (
+                "Verfolgten zu helfen kann wichtiger sein als ein Gesetz, das Verfolgung schützt.",
+                "Wer Verfolgte vor Unrecht schützt, darf ein ungerechtes Gesetz brechen.",
+                "Menschen vor Verfolgung zu schützen ist wichtiger als blinder Gehorsam gegenüber einem ungerechten Gesetz.",
+            )
+        else:
+            choices = (
+                "Ein Gesetz darf kein Schutzschild für Verfolgung sein; Verfolgten zu helfen schützt die Menschenwürde.",
+                "Wer Verfolgten hilft, verteidigt Menschenwürde, auch wenn ein ungerechtes Gesetz dagegensteht.",
+                "Der Staat darf Hilfe für Verfolgte nicht zum Verbrechen erklären, wenn das Gesetz selbst Unrecht schützt.",
+            )
+    else:
+        choices = (
+            "Ich kann dazu gerade keine verlässliche Antwort formulieren, ohne etwas zu erfinden.",
+            "Ich möchte keine unbelegte Antwort geben; die Frage muss am konkreten Fall geprüft werden.",
+        )
+    used = {text.casefold() for _, text in transcript}
+    recent = recent_sentences(transcript, 8)
+    return next((
+        line for line in choices
+        if line.casefold() not in used
+        and (not {"verf", "helf"} <= roots or answers_topic(line, scenario))
+        and (not {"geho", "staa", "pfli", "verb"} <= roots or answers_topic(line, scenario))
+        and not any(is_repeat_sentence(sentence, recent, 0.6) for sentence in split_sentences(line))
+    ), None)
+
+
+def topic_context(scenario):
+    terms = topic_terms(scenario)
+    anchors = ", ".join(terms[:5])
+    anchor_rule = (
+        f"Verwende mindestens {min(2, len(terms))} dieser Begriffe: {anchors}. "
+        if terms else ""
+    )
+    roots = {term[:4] for term in terms}
+    case_rule = (
+        "Unterscheide ausdrücklich zwischen Pflicht und Verbrechen: Beantworte, wann "
+        "Gehorsam gegenüber dem Staat Pflicht sein kann und wann Widerstand geboten ist. "
+        if {"geho", "staa", "pfli", "verb"} <= roots else ""
+    )
+    return (
+        f"Leitfrage: {scenario}\n"
+        "Diskussionsregel: Beantworte die Leitfrage direkt. "
+        f"{anchor_rule}"
+        f"{case_rule}"
+        "Reagiere auf den vorherigen Beitrag und "
+        "führe ein konkretes Argument zum Thema aus. Wechsle nicht zu einem anderen Thema oder einer "
+        "anderen Szene, wiederhole keine frühere Antwort und beende die Debatte nicht eigenmächtig. "
+        "Schreibe in idiomatischem, grammatikalisch korrektem Deutsch. Sage ausdrücklich, wenn du "
+        "einem Argument zustimmst; bloßes Schweigen oder ein Themenwechsel bedeutet keine Einigung."
+    )
+
+
+def outcome_check_allowed(rounds_completed):
+    return rounds_completed >= MIN_ROUNDS_BEFORE_OUTCOME
+
+
 def window(transcript, scenario, start, k=2):
     tail = list(transcript[start:])
     if k > 0:
         tail = tail[-k:]
-    return [(MODERATOR, scenario)] + tail
+    return [(MODERATOR, topic_context(scenario))] + tail
+
+
+def prompt_context(speaker, transcript, ctx):
+    if speaker != "solidarity_us":
+        return ctx
+    already_used = any(
+        role == speaker and re.search(r"\bsolidarität\b", text, re.IGNORECASE)
+        for role, text in transcript
+    )
+    if already_used:
+        instruction = (
+            "Sprachregel: Du hast das Wort „Solidarität“ in dieser Debatte bereits verwendet. "
+            "Benutze es in dieser Antwort nicht erneut. Erkläre deinen konkreten Gedanken "
+            "stattdessen mit anderen, präzisen Worten."
+        )
+    else:
+        instruction = (
+            "Sprachregel: Verwende das Wort „Solidarität“ höchstens einmal und nur, wenn es "
+            "für deinen konkreten Gedanken nötig ist. Vermeide Schlagworte und wiederkehrende "
+            "Einleitungen."
+        )
+    return ctx + [(MODERATOR, instruction)]
+
 
 def split_sentences(text):
     return [p.strip() for p in re.split(r'(?<=[.!?…])\s+', text.strip()) if p.strip()]
@@ -212,7 +358,88 @@ def trim_to_sentences(text, limit):
 
 def valid_weave(text, opener):
     text = text.strip()
-    return text.startswith(opener) and len(text) >= 15
+    return text.startswith(opener) and len(text) >= 15 and bool(sentence_ends(text))
+
+
+def grounded_weave(text, transcript, scenario):
+    body = text
+    for opener in AGREE_OPENERS + DISAGREE_OPENERS:
+        if body.startswith(opener):
+            body = body[len(opener):]
+            break
+    statement_terms = {
+        word for word in _words(body)
+        if len(word) >= 5 and word not in TOPIC_STOPWORDS
+    }
+    discussion_terms = {
+        word for _, part in transcript for word in _words(part)
+        if len(word) >= 5 and word not in TOPIC_STOPWORDS
+    }
+    topic_matches = topic_coverage(body, scenario)[0]
+    persona_terms = {
+        persona: {
+            word for speaker, part in transcript if speaker == persona for word in _words(part)
+            if len(word) >= 5 and word not in TOPIC_STOPWORDS
+        }
+        for persona in PERSONAS
+    }
+
+    def supported_by(term, words):
+        return any(term.startswith(other[:5]) or other.startswith(term[:5]) for other in words)
+
+    supported = {term for term in statement_terms if supported_by(term, discussion_terms)}
+    shared = {
+        term for term in statement_terms
+        if all(supported_by(term, words) for words in persona_terms.values())
+    }
+    return (
+        topic_matches >= 1
+        and len(supported) >= 2
+        and len(shared) >= 2
+        and len(supported) / max(1, len(statement_terms)) >= 0.4
+    )
+
+
+AGREEMENT_PATTERNS = (
+    re.compile(r"\bich stimme (?:dir|dem|der|darin|da) (?:teilweise )?zu\b", re.I),
+    re.compile(r"\b(?:da|darin|dir|dem|der) stimme ich (?:teilweise )?(?:zu|überein)\b", re.I),
+    re.compile(r"\bda hast du recht\b", re.I),
+    re.compile(r"\bich kann (?:dir|dem|der) zustimmen\b", re.I),
+    re.compile(r"\bdarin sind wir uns einig\b", re.I),
+    re.compile(r"\bwir stimmen (?:darin )?überein\b", re.I),
+    re.compile(r"\bdas sehe ich genauso\b", re.I),
+)
+
+
+def explicitly_agrees(text):
+    return any(pattern.search(text) for pattern in AGREEMENT_PATTERNS)
+
+
+def mutual_explicit_agreement(transcript):
+    for persona in PERSONAS:
+        index = last_statement_index(transcript, persona)
+        if index is None or not explicitly_agrees(transcript[index][1]):
+            return False
+    return True
+
+
+def valid_debate_turn(text, scenario, transcript, repeat_guard=True):
+    text = clean(text).strip()
+    if (not text or looks_like_assistant(text) or not answers_topic(text, scenario)
+            or scenario and not sentence_ends(text)):
+        return False
+    if repeat_guard:
+        recent = recent_sentences(transcript, 8)
+        if any(is_repeat_sentence(sentence, recent, 0.6) for sentence in split_sentences(text)):
+            return False
+    return True
+
+
+async def reveal_text(text, send):
+    for offset in range(0, len(text), 3):
+        send(text[offset:offset + 3])
+        await asyncio.sleep(0.025)
+
 
 def looks_like_assistant(text):
     low = text.lower()
@@ -431,92 +658,65 @@ async def p_interrupt(listener, prompt):
         elif tid == wid or name == WAIT:    pw = max(pw, _prob(t))
     return pi / (pi + pw) if pi + pw > 0 else 0.0     # same relative p as in the training eval
 
-async def speak(speaker, listener, ctx, transcript, mode, allow_interrupt):
-    prev_sentences = recent_sentences(transcript, 6)
+async def speak(speaker, listener, ctx, transcript, mode, allow_interrupt, scenario=None):
+    scenario = scenario or getattr(OPTS, "topic", "")
     for attempt in range(3):
         temperature = max(0.0, OPTS.temperature - 0.15 * attempt)
         seed = random.randint(0, 2**31 - 1) if attempt else None
-        text = ""
-        buffer = ""
-        flushed = False
-        assistant = False
-        cut = False
-        done = 0
-        checked_end = 0
-        prev_end = 0
-
-        async def check_sentences(stripped):
-            nonlocal done, checked_end, prev_end, cut
-            for e in [x for x in sentence_ends(stripped) if x > checked_end]:
-                sentence = stripped[prev_end:e].strip()
-                checked_end = e
-                if OPTS.repeat_guard and is_repeat_sentence(sentence, prev_sentences, 0.6):
-                    return "repeat"
-                prev_end = e
-                done += 1
-                if allow_interrupt and mode["thresh"] is not None and len(stripped[:e]) > mode["min_chars"]:
-                    if OPTS.dice is not None:
-                        p = random.random() if random.random() < OPTS.dice else 0.0
-                    else:
-                        p = await p_interrupt(listener, render(ctx, (speaker, stripped[:e]), listener))
-                    if OPTS.debug:
-                        print(f" [p={p:.2f}]", end="", flush=True)
-                    if p > mode["thresh"]:
-                        cut = True
-                        return "cut"
-                if done >= OPTS.max_sentences:
-                    return "max"
-            return None
-
-        async with aclosing(stream(speaker, render(ctx, next_speaker=speaker), OPTS.tokens,
+        instructions = prompt_context(speaker, transcript, ctx)
+        if attempt:
+            instructions = instructions + [(
+                MODERATOR,
+                "Dein vorheriger Entwurf war nicht akzeptabel, weil er vom Thema abwich, "
+                "frühere Formulierungen wiederholte oder ungrammatisch war. Schreibe eine neue, "
+                "kurze Antwort in idiomatischem Deutsch. "
+                "Beantworte die Leitfrage ausdrücklich und verwende die geforderten Schlüsselbegriffe.",
+            )]
+        prompt = render(instructions, next_speaker=speaker)
+        pieces = []
+        async with aclosing(stream(speaker, prompt, OPTS.tokens,
                                     temperature, seed)) as gen:
             async for piece in gen:
-                text += piece
-                if not flushed:
-                    buffer += piece
-                    if len(buffer) < 30:
-                        continue
-                    if looks_like_assistant(buffer):
-                        assistant = True
-                        break
-                    print(buffer, end="", flush=True)
-                    flushed = True
-                else:
-                    before = text[:-len(piece)] if piece else text
-                    if needs_space(before, piece):
-                        print(" ", end="", flush=True)
-                    print(piece, end="", flush=True)
-                action = await check_sentences(text.rstrip())
-                if action == "repeat":
-                    text = text.rstrip()[:prev_end]
-                    return trim_to_last_sentence(text), False
-                if action in ("cut", "max"):
-                    text = text.rstrip()[:prev_end]
+                pieces.append(piece)
+                if count_sentences("".join(pieces)) >= OPTS.max_sentences:
                     break
-        if assistant:
+        text = trim_to_last_sentence(
+            trim_to_sentences(clean("".join(pieces)).strip(), OPTS.max_sentences)
+        )
+        if not valid_debate_turn(text, scenario, transcript, OPTS.repeat_guard):
             continue
-        if not flushed:
-            if looks_like_assistant(buffer):
+        cut = False
+        accepted = []
+        for sentence in split_sentences(text):
+            accepted.append(sentence)
+            partial = " ".join(accepted)
+            if not allow_interrupt or mode["thresh"] is None or len(partial) <= mode["min_chars"]:
                 continue
-            print(buffer, end="", flush=True)
-            flushed = True
-            action = await check_sentences(text.rstrip())
-            if action == "repeat":
-                text = text.rstrip()[:prev_end]
-                return trim_to_last_sentence(text), False
-            if action in ("cut", "max"):
-                text = text.rstrip()[:prev_end]
-        if not text.strip():
-            continue
-        return trim_to_last_sentence(text), cut
-    line = random.choice(FALLBACK_LINES[speaker])
+            if OPTS.dice is not None:
+                p = random.random() if random.random() < OPTS.dice else 0.0
+            else:
+                p = await p_interrupt(listener, render(ctx, (speaker, partial), listener))
+            if OPTS.debug:
+                print(f" [p={p:.2f}]", end="", flush=True)
+            if p > mode["thresh"]:
+                text = partial
+                cut = True
+                break
+        await reveal_text(text, lambda piece: print(piece, end="", flush=True))
+        return text, cut
+    line = topic_fallback(speaker, scenario, transcript)
+    if line is None:
+        line = "Ich kann dazu gerade keine verlässliche Antwort formulieren, ohne etwas zu erfinden."
     print(line, end="", flush=True)
     return line, False
 
-async def objection(speaker, listener, ctx, partial):
-    opener = random.choice(INTERRUPT_OPENERS)
-    prompt = render(ctx, (speaker, partial), listener) + INTERRUPT + opener
-    print(opener, end="", flush=True)
+async def objection(speaker, listener, ctx, partial, transcript=None, scenario=None):
+    transcript = transcript or []
+    scenario = scenario or getattr(OPTS, "topic", "")
+    recent = recent_sentences(transcript, 8)
+    openers = [item for item in INTERRUPT_OPENERS if not is_repeat_sentence(item, recent, 0.6)]
+    opener = random.choice(openers or INTERRUPT_OPENERS)
+    prompt = render(prompt_context(listener, transcript, ctx), (speaker, partial), listener) + INTERRUPT + opener
     for attempt in range(3):
         temperature = max(0.0, OPTS.temperature - 0.15 * attempt)
         seed = random.randint(0, 2**31 - 1) if attempt else None
@@ -534,15 +734,10 @@ async def objection(speaker, listener, ctx, partial):
                     if looks_like_assistant(buffer):
                         assistant = True
                         break
-                    print(buffer, end="", flush=True)
                     flushed = True
                     if count_sentences(out) >= 2:
                         break
                     continue
-                before = out[:-len(piece)] if piece else out
-                if needs_space(before, piece):
-                    print(" ", end="", flush=True)
-                print(piece, end="", flush=True)
                 if count_sentences(out) >= 2:
                     break
         if assistant:
@@ -550,22 +745,34 @@ async def objection(speaker, listener, ctx, partial):
         if not flushed:
             if looks_like_assistant(buffer):
                 continue
-            print(buffer, end="", flush=True)
-        if not out.strip() or out.strip() == opener.strip():
+        candidate = trim_to_sentences(out, 2)
+        if (not candidate or looks_like_assistant(candidate)
+                or candidate.strip() == opener.strip()
+                or not answers_topic(candidate, scenario)
+                or any(is_repeat_sentence(sentence, recent, 0.6)
+                       for sentence in split_sentences(candidate))):
             continue
-        return trim_to_sentences(out, 2)
-    line = random.choice(FALLBACK_LINES[listener])
-    print(line, end="", flush=True)
-    return (opener + " " + line).strip()
+        print(candidate, end="", flush=True)
+        return candidate
+    line = topic_fallback(listener, scenario, transcript)
+    if line is None:
+        print(opener, end="", flush=True)
+        return opener
+    fallback = (opener + " " + line).strip()
+    print(fallback, end="", flush=True)
+    return fallback
 
-async def continue_after_interrupt(speaker, ctx, partial, n_predict=8):
-    prompt = render(ctx, next_speaker=speaker) + partial
+async def continue_after_interrupt(speaker, ctx, partial, n_predict=8, transcript=None):
+    prompt = render(prompt_context(speaker, transcript or [], ctx), next_speaker=speaker) + partial
     extra = ""
     async with aclosing(stream(speaker, prompt, n_predict, max(0.0, OPTS.temperature - 0.1))) as gen:
         async for piece in gen:
             extra += piece
     extra = clean(extra).strip()
     if not extra or looks_like_assistant(extra):
+        return ""
+    recent = [*recent_sentences(transcript or [], 8), *split_sentences(partial)]
+    if any(is_repeat_sentence(sentence, recent, 0.6) for sentence in split_sentences(extra)):
         return ""
     if needs_space(partial, extra):
         extra = " " + extra
@@ -574,54 +781,49 @@ async def continue_after_interrupt(speaker, ctx, partial, n_predict=8):
 
 
 # ---------- joint text and round outcomes ----------
-async def weave(scenario, transcript, start, order, mix_every=1, temperature=None, joint_sentences=None, opener=None):
-    ctx = window(transcript, scenario, start, k=2)
-    prefix, end_ids = {}, {}
-    for p in PERSONAS:
-        prefix[p] = await tokenize(p, render(ctx, next_speaker=p))
-        ids = await tokenize(p, "<|im_end|>")
-        end_ids[p] = ids[0] if ids else None
+async def weave(scenario, transcript, start, order, mix_every=1, temperature=None,
+                joint_sentences=None, opener=None, session_stream=False):
+    speaker = order[0]
     opener = opener or random.choice(AGREE_OPENERS)
-    gen_ids = list(await tokenize(order[0], opener))
-    text = opener
     limit = OPTS.joint_sentences if joint_sentences is None else joint_sentences
-    print("\n\n\u2014 Einigung \u2014")
-    print(opener, end="", flush=True)
-    for i in range(OPTS.tokens):
-        who = order[(i // max(1, mix_every)) % 2]
-        payload = {"prompt": prefix[who] + gen_ids, "n_predict": 1, "cache_prompt": True, "return_tokens": True}
-        payload.update(sampling_params(temperature, with_stop=False))
-        r = await client.post(url(who) + "/completion", json=payload)
-        await check_response(r, f"{who} joint generation (prompt tokens: {len(prefix[who]) + len(gen_ids)})")
-        d = r.json()
-        if d.get("stopped_eos") or d.get("stop_type") == "eos":
-            break
-        toks = d.get("tokens") or []
-        piece = d.get("content", "")
-        if not toks:
+    ctx = window(transcript, scenario, start, k=0)
+    instruction = (
+        f"Vervollständige den begonnenen Satz mit höchstens {limit} kurzen Sätzen und insgesamt "
+        "höchstens 20 Wörtern. Fasse genau einen Gedanken zusammen, dem beide Seiten ausdrücklich "
+        "zugestimmt haben. Verwende nur Begriffe und Aussagen, die im Gespräch oben vorkommen. "
+        "Erfinde keine Beispiele, Regeln, Rechte oder Ereignisse. Wiederhole keine Schlüsselwörter "
+        "und sage denselben Gedanken nicht noch einmal mit anderen Worten. Vermeide Schlagworte "
+        "und Slogans. Schreibe natürliches, grammatikalisch korrektes Deutsch und bleibe beim Thema."
+    )
+    prompt = render(prompt_context(speaker, transcript, ctx) + [(MODERATOR, instruction)],
+                    next_speaker=speaker) + opener
+    pieces = []
+    async with aclosing(stream(
+        speaker, prompt, OPTS.tokens,
+        temperature if temperature is not None else max(0.2, OPTS.temperature - 0.2),
+    )) as gen:
+        async for piece in gen:
+            piece = clean(piece)
             if not piece:
+                continue
+            pieces.append(piece)
+            if count_sentences(opener + "".join(pieces)) >= limit:
                 break
-            toks = await tokenize(who, piece)
-        if not toks:
-            break
-        if end_ids.get(who) in toks:
-            break
-        gen_ids.extend(toks)
-        piece = clean(piece)
-        if piece:
-            if needs_space(text, piece):
-                print(" ", end="", flush=True)
-            text += piece
-            print(f"{COLORS[who]}{piece}{RESET}", end="", flush=True)
-        if "\n\n" in text or "---" in text:
-            break
-        if count_sentences(text) >= limit:
-            break
-    print()
-    if not text.strip():
-        raise RuntimeError(
-            "Joint generation returned no text. Both models stopped before producing a response."
-        )
+    text = (opener + "".join(pieces)).strip()
+    if not text or not valid_weave(text, opener) or looks_like_assistant(text):
+        return ""
+    if not grounded_weave(text, transcript[start:], scenario):
+        return ""
+    if session_stream:
+        emit({"type": "joint_start"})
+        await reveal_text(text, lambda piece: emit({
+            "type": "delta", "speaker": "joint", "text": piece, "section": "joint"
+        }))
+    else:
+        print("\n\n\u2014 Einigung \u2014")
+        print(COLORS[speaker], end="", flush=True)
+        await reveal_text(text, lambda piece: print(piece, end="", flush=True))
+        print(f"{RESET}\n", end="", flush=True)
     return text.strip()
 
 def print_scripted(lines, order):
@@ -643,8 +845,8 @@ def last_statement_index(transcript, persona):
 
 
 async def evaluate_stance(transcript, scenario, start):
-    """Agree only when both personas accept the other's latest statement."""
-    if not IDS:
+    """Agree only when both personas explicitly accept the other's latest statement."""
+    if not IDS or not mutual_explicit_agreement(transcript):
         return "disagree"
     accept = getattr(OPTS, "accept", 0.35)
     for persona in PERSONAS:
@@ -668,6 +870,9 @@ async def evaluate_human_stance(human, ai, transcript, start):
     index = last_statement_index(transcript, human)
     if index is None:
         return "disagree"
+    ai_index = last_statement_index(transcript, ai)
+    if ai_index is None or not explicitly_agrees(transcript[ai_index][1]):
+        return "disagree"
     ctx = window(transcript[:index], OPTS.topic, start, k=2)
     prob = await p_interrupt(ai, render(ctx, (human, transcript[index][1]), ai))
     if getattr(OPTS, "debug", False):
@@ -681,8 +886,11 @@ async def finalize_outcome(scenario, transcript, start, next_speaker, decision):
         opener = random.choice(AGREE_OPENERS)
         joint = await weave(scenario, transcript, start, order, mix_every=OPTS.mix_every,
                             opener=opener)
-        if not valid_weave(joint, opener) or looks_like_assistant(joint):
-            print_fallback(FALLBACK_LINES, order)
+        if not joint:
+            print("[Einigung verworfen: keine belegte gemeinsame Aussage]")
+            print_fallback(DISAGREE_LINES, order)
+            print("\n\n[Einigung: uneinig, aber respektvoll]")
+            return
         print("\n\n[Einigung erreicht]")
         return
     if decision == "disagree":
@@ -695,6 +903,30 @@ async def finalize_outcome(scenario, transcript, start, next_speaker, decision):
         return
     angry_exit(next_speaker)
     print("\n\n[Abbruch: Streit eskaliert]")
+
+
+async def session_finalize_outcome(scenario, transcript, start, next_speaker, decision):
+    if decision == "agree":
+        order = [next_speaker, other(next_speaker)]
+        opener = random.choice(AGREE_OPENERS)
+        joint = await weave(
+            scenario,
+            transcript,
+            start,
+            order,
+            mix_every=OPTS.mix_every,
+            joint_sentences=OPTS.joint_sentences,
+            opener=opener,
+            session_stream=True,
+        )
+        if not joint:
+            emit({
+                "type": "status",
+                "state": "closing",
+                "text": "Einigung verworfen: keine belegte gemeinsame Aussage.",
+            })
+            decision = "disagree"
+    emit({"type": "outcome", "outcome": decision})
 
 
 async def resolve_round(scenario, transcript, start, next_speaker, strikes, first_round=False):
@@ -713,6 +945,8 @@ async def resolve_round(scenario, transcript, start, next_speaker, strikes, firs
 
     decision, strikes = decide_outcome(OPTS.outcome, None, strikes, OPTS.patience, OPTS.accept,
                                        first_round=first_round)
+    if OPTS.outcome == "random" and decision == "agree" and not mutual_explicit_agreement(transcript):
+        decision = "disagree"
     await finalize_outcome(scenario, transcript, start, next_speaker, decision)
     return decision, strikes
 
@@ -739,15 +973,19 @@ async def debate():
             ctx = window(transcript, scenario, start, 4)
             allow_interrupt = (not just_interrupted) and (turn - last_interrupt_turn > OPTS.cooldown)
             print(f"\n\n[{PERSONAS[speaker]['label']}] ", end="", flush=True)
-            text, cut = await speak(speaker, listener, ctx, transcript, mode, allow_interrupt)
+            text, cut = await speak(
+                speaker, listener, ctx, transcript, mode, allow_interrupt, scenario=scenario
+            )
             if cut:
-                text += await continue_after_interrupt(speaker, ctx, text)
+                text += await continue_after_interrupt(speaker, ctx, text, transcript=transcript)
             transcript.append((speaker, text))
             if cut:
                 last_interrupt_turn = turn
                 print(" —", end="")
                 print(f"\n\n[{PERSONAS[listener]['label']}] ", end="", flush=True)
-                transcript.append((listener, await objection(speaker, listener, ctx, text)))
+                transcript.append((listener, await objection(
+                    speaker, listener, ctx, text, transcript, scenario
+                )))
                 just_interrupted = True
             else:
                 just_interrupted = False
@@ -758,11 +996,13 @@ async def debate():
             if OPTS.agree:
                 if round_turns >= 2:
                     round_turns = 0
+                    round_index += 1
+                    if not outcome_check_allowed(round_index):
+                        continue
                     decision, strikes = await resolve_round(
                         scenario, transcript, start, speaker, strikes,
-                        first_round=(round_index == 0),
+                        first_round=(round_index == MIN_ROUNDS_BEFORE_OUTCOME),
                     )
-                    round_index += 1
                     if decision in ("agree", "disagree", "angry"):
                         return
             else:
@@ -778,18 +1018,10 @@ async def debate():
                             just_interrupted = False
                             print(f"\n\n[Moderator] {scenario}")
         if OPTS.agree:
-            if round_turns > 0:
-                decision, strikes = await resolve_round(
-                    scenario, transcript, start, speaker, strikes,
-                    first_round=(round_index == 0),
-                )
-                if decision in ("agree", "disagree", "angry"):
-                    return
             await finalize_outcome(scenario, transcript, start, speaker, "disagree")
         print()
 
 
-# ---------- session protocol (web frontend) ----------
 def emit(event):
     """Write one NDJSON event. Only active in --session mode."""
     if not SESSION:
@@ -853,7 +1085,7 @@ async def collect_text(speaker, prompt, n_predict=None, temperature=None):
 async def session_suggestion(model, transcript, start):
     try:
         ctx = window(transcript, OPTS.topic, start, 4)
-        prompt = render(ctx, next_speaker=model)
+        prompt = render(prompt_context(model, transcript, ctx), next_speaker=model)
         text = await collect_text(model, prompt, 60, max(0.4, OPTS.temperature - 0.2))
     except Exception:
         return
@@ -876,18 +1108,44 @@ async def session_ai_turn(speaker, transcript, start, section="turn", n_predict=
     if auto:
         event["auto"] = True
     emit(event)
-    prompt = render(ctx, next_speaker=speaker)
     text = ""
-    async with aclosing(stream(speaker, prompt, n_predict or OPTS.tokens)) as gen:
-        async for piece in gen:
-            if not piece:
-                continue
-            text += piece
-            emit({"type": "delta", "speaker": speaker, "text": piece, "section": section})
-    text = clean(text).strip()
+    sentence_limit = getattr(OPTS, "max_sentences", 2)
+    for attempt in range(3):
+        context = prompt_context(speaker, transcript, ctx)
+        if attempt:
+            context = context + [(MODERATOR,
+                "Der vorige Entwurf wich vom Thema ab oder wiederholte eine frühere Antwort. "
+                "Oder er war ungrammatisch. Formuliere eine neue, kurze und grammatikalisch korrekte Antwort. "
+                "Beantworte die Leitfrage ausdrücklich und verwende die geforderten Schlüsselbegriffe."
+            )]
+        prompt = render(context, next_speaker=speaker)
+        pieces = []
+        async with aclosing(stream(
+            speaker, prompt, n_predict or OPTS.tokens,
+            max(0.0, OPTS.temperature - 0.15 * attempt),
+        )) as gen:
+            async for piece in gen:
+                if piece:
+                    pieces.append(piece)
+                if count_sentences("".join(pieces)) >= sentence_limit:
+                    break
+        text = trim_to_last_sentence(
+            trim_to_sentences(clean("".join(pieces)).strip(), sentence_limit)
+        )
+        if valid_debate_turn(text, OPTS.topic, transcript, getattr(OPTS, "repeat_guard", True)):
+            await reveal_text(text, lambda piece: emit({
+                "type": "delta", "speaker": speaker, "text": piece, "section": section
+            }))
+            break
+        text = ""
     if not text:
-        text = random.choice(FALLBACK_LINES[speaker])
-        emit({"type": "delta", "speaker": speaker, "text": text, "section": section, "fallback": True})
+        text = topic_fallback(speaker, OPTS.topic, transcript)
+        if text is None:
+            text = "Ich kann dazu gerade keine verlässliche Antwort formulieren, ohne etwas zu erfinden."
+        emit({"type": "log", "text": f"{PERSONAS[speaker]['label']}: Modellantwort verworfen; transparente Ersatzantwort verwendet."})
+        await reveal_text(text, lambda piece: emit({
+            "type": "delta", "speaker": speaker, "text": piece, "section": section, "fallback": True
+        }))
     transcript.append((speaker, text))
     return text
 
@@ -921,7 +1179,6 @@ async def session_human_turn(role, speaker, transcript, start, section="turn",
             with suppress(asyncio.CancelledError):
                 await task
     if message is not None and message.get("type") == "agree":
-        emit({"type": "outcome", "outcome": "agree"})
         return "agree"
     if message is not None and message.get("type") == "end":
         return "end"
@@ -952,25 +1209,30 @@ async def session_human_vs_ai(quick=False):
     rounds = 4 if quick else max(1, OPTS.exchanges)
     patience = getattr(OPTS, "patience", 4)
     strikes = 0
-    for _ in range(rounds):
+    for round_index in range(1, rounds + 1):
         result = await session_human_turn(human, human, transcript, start,
                                           allow_suggestion=True, suggestion_model=human)
-        if result in ("agree", "end"):
+        if result == "agree":
+            await session_finalize_outcome(OPTS.topic, transcript, start, ai, "agree")
+            return
+        if result == "end":
             return
         await session_ai_turn(ai, transcript, start)
+        if not outcome_check_allowed(round_index):
+            continue
         decision = await evaluate_human_stance(human, ai, transcript, start)
         if decision == "agree":
-            emit({"type": "outcome", "outcome": "agree"})
+            await session_finalize_outcome(OPTS.topic, transcript, start, ai, "agree")
             return
         strikes += 1
         if not quick and strikes >= patience:
-            emit({"type": "outcome", "outcome": "disagree"})
+            await session_finalize_outcome(OPTS.topic, transcript, start, ai, "disagree")
             return
     if quick:
         emit({"type": "status", "state": "closing", "text": "Abschlussstatements"})
         await session_ai_turn(ai, transcript, start, section="closing")
         await session_ai_turn(human, transcript, start, section="closing", human=True, auto=True)
-    emit({"type": "outcome", "outcome": "disagree"})
+    await session_finalize_outcome(OPTS.topic, transcript, start, ai, "disagree")
 
 
 async def session_human_vs_both():
@@ -979,22 +1241,27 @@ async def session_human_vs_both():
     emit({"type": "topic", "topic": OPTS.topic, "mode": "human_vs_both"})
     patience = getattr(OPTS, "patience", 4)
     strikes = 0
-    for _ in range(max(1, OPTS.exchanges)):
+    for round_index in range(1, max(1, OPTS.exchanges) + 1):
         result = await session_human_turn(MODERATOR, "human", transcript, start,
                                           allow_suggestion=False)
-        if result in ("agree", "end"):
+        if result == "agree":
+            await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "agree")
+            return
+        if result == "end":
             return
         for speaker in PERSONAS:
             await session_ai_turn(speaker, transcript, start)
+        if not outcome_check_allowed(round_index):
+            continue
         decision = await evaluate_stance(transcript, OPTS.topic, start)
         if decision == "agree":
-            emit({"type": "outcome", "outcome": "agree"})
+            await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "agree")
             return
         strikes += 1
         if strikes >= patience:
-            emit({"type": "outcome", "outcome": "disagree"})
+            await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "disagree")
             return
-    emit({"type": "outcome", "outcome": "disagree"})
+    await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "disagree")
 
 
 async def session_moderator():
@@ -1003,22 +1270,27 @@ async def session_moderator():
     emit({"type": "topic", "topic": OPTS.topic, "mode": "moderator"})
     patience = getattr(OPTS, "patience", 4)
     strikes = 0
-    for _ in range(max(1, OPTS.exchanges)):
+    for round_index in range(1, max(1, OPTS.exchanges) + 1):
         result = await session_human_turn(MODERATOR, "moderator", transcript, start,
                                           allow_suggestion=False)
-        if result in ("agree", "end"):
+        if result == "agree":
+            await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "agree")
+            return
+        if result == "end":
             return
         for speaker in PERSONAS:
             await session_ai_turn(speaker, transcript, start)
+        if not outcome_check_allowed(round_index):
+            continue
         decision = await evaluate_stance(transcript, OPTS.topic, start)
         if decision == "agree":
-            emit({"type": "outcome", "outcome": "agree"})
+            await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "agree")
             return
         strikes += 1
         if strikes >= patience:
-            emit({"type": "outcome", "outcome": "disagree"})
+            await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "disagree")
             return
-    emit({"type": "outcome", "outcome": "disagree"})
+    await session_finalize_outcome(OPTS.topic, transcript, start, "ddr", "disagree")
 
 
 async def session_main():
@@ -1084,10 +1356,10 @@ def parse_args():
     ap.add_argument("--agree", action="store_true", default=True, help="auto-resolve by stance each round")
     ap.add_argument("--no-agree", dest="agree", action="store_false")
     ap.add_argument("--mix-every", type=int, default=1)
-    ap.add_argument("--joint-sentences", type=int, default=3)
+    ap.add_argument("--joint-sentences", type=int, default=1)
     ap.add_argument("--accept", type=float, default=0.35)
-    ap.add_argument("--attempts", type=int, default=2)
-    ap.add_argument("--patience", type=int, default=4)
+    ap.add_argument("--attempts", type=int, default=10)
+    ap.add_argument("--patience", type=int, default=7)
     ap.add_argument("--rage", type=int, default=3)
     ap.add_argument("--outcome", choices=("auto", "agree", "disagree", "angry", "random"), default="auto")
     ap.add_argument("--session", action="store_true", help="JSON-lines session protocol for the web frontend")
