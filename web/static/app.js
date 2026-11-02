@@ -14,15 +14,15 @@ const I18N = {
     homeTitle: "Streite mit zwei trainierten Stimmen.",
     homeSubtitle: "Wähle ein Format, gib ein Thema vor und debattiere live gegen Solidarität (USA), die DDR – oder gegen beide.",
     modeAI: "KI gegen KI",
-    modeAIDesc: "Beide Modelle debattieren autonom. Du liest mit.",
+    modeAIDesc: "Beide Modelle debattieren autonom, bis sie sich einig oder klar uneinig sind.",
     modeHumanAI: "Du gegen eine KI",
-    modeHumanAIDesc: "Wähle eine Seite und antworte der anderen Stimme.",
+    modeHumanAIDesc: "Wähle eine Seite und antworte. Die KI führt das Gespräch zu Einigung oder Uneinigkeit.",
     modeHumanBoth: "Du gegen beide KIs",
-    modeHumanBothDesc: "Eine Aussage von dir, beide Stimmen antworten.",
+    modeHumanBothDesc: "Eine Aussage von dir, beide Stimmen antworten. Endet bei Einigung oder klarer Uneinigkeit.",
     modeModerator: "Du moderierst",
-    modeModeratorDesc: "Du stellst die Fragen, beide KIs antworten der Reihe nach.",
+    modeModeratorDesc: "Du stellst die Fragen, beide KIs antworten. Endet bei Einigung oder klarer Uneinigkeit.",
     modeQuick: "Schnellduell",
-    modeQuickDesc: "Vier Runden, dann Abschlussstatements. Einigung beendet das Duell sofort.",
+    modeQuickDesc: "Max. vier Runden, dann Abschlussstatements. Einigung oder klare Uneinigkeit beendet es früher.",
     personaUS: "Solidarität (USA)",
     personaUSDesc: "Freiheit, Eigenverantwortung und offene Debatte.",
     personaDDR: "DDR",
@@ -43,11 +43,10 @@ const I18N = {
     topicLabel: "Thema",
     topicPlaceholder: "Wenn das Land angegriffen wird, wäre es okay, das Land zu verlassen?",
     chooseSide: "Deine Seite",
-    exchanges: "Runden",
     turnSeconds: "Zeit pro Antwort",
+    autoEndHint: "Endet automatisch bei Einigung oder klarer Uneinigkeit.",
     suggestionsLabel: "Antwortvorschläge meiner Seite anzeigen",
     debateMode: "Gesprächsmodus",
-    turns: "Runden",
     outcome: "Ergebnis",
     modePolite: "Höflich",
     modeFree: "Frei",
@@ -97,15 +96,15 @@ const I18N = {
     homeTitle: "Argue with two trained voices.",
     homeSubtitle: "Pick a format, set a topic and debate live against Solidarity (USA), the GDR — or both.",
     modeAI: "AI vs AI",
-    modeAIDesc: "Both models debate on their own. You observe.",
+    modeAIDesc: "Both models debate until they agree or clearly disagree.",
     modeHumanAI: "You vs one AI",
-    modeHumanAIDesc: "Pick a side and answer the other voice.",
+    modeHumanAIDesc: "Pick a side and answer. The AI drives toward agreement or disagreement.",
     modeHumanBoth: "You vs both AIs",
-    modeHumanBothDesc: "One statement from you, both voices respond.",
+    modeHumanBothDesc: "One statement from you, both voices respond. Ends on agreement or clear disagreement.",
     modeModerator: "You moderate",
-    modeModeratorDesc: "You ask the questions, both AIs answer in turn.",
+    modeModeratorDesc: "You ask the questions, both AIs answer. Ends on agreement or clear disagreement.",
     modeQuick: "Quick duel",
-    modeQuickDesc: "Four rounds, then closing statements. Agreement ends it immediately.",
+    modeQuickDesc: "Max. four rounds, then closing statements. Agreement or clear disagreement ends it earlier.",
     personaUS: "Solidarity (USA)",
     personaUSDesc: "Freedom, personal responsibility and open debate.",
     personaDDR: "GDR",
@@ -126,11 +125,10 @@ const I18N = {
     topicLabel: "Topic",
     topicPlaceholder: "If the country is attacked, would it be okay to leave it?",
     chooseSide: "Your side",
-    exchanges: "Rounds",
     turnSeconds: "Time per answer",
+    autoEndHint: "Ends automatically on agreement or clear disagreement.",
     suggestionsLabel: "Show suggested replies from my side",
     debateMode: "Conversation mode",
-    turns: "Rounds",
     outcome: "Outcome",
     modePolite: "Polite",
     modeFree: "Free",
@@ -232,14 +230,11 @@ const formatPicker = $("#format-picker");
 const topicInput = $("#topic-input");
 const sideField = $("#side-field");
 const humanOptions = $("#human-options");
-const exchangesField = $("#exchanges-field");
-const exchangesInput = $("#exchanges-input");
 const turnSecondsInput = $("#turn-seconds-input");
 const suggestionsField = $("#suggestions-field");
 const suggestionsInput = $("#suggestions-input");
 const aiOptions = $("#ai-options");
 const aiModeInput = $("#ai-mode-input");
-const aiTurnsInput = $("#ai-turns-input");
 const aiOutcomeInput = $("#ai-outcome-input");
 const autoLaunchInput = $("#auto-launch-input");
 const startDebateBtn = $("#start-debate");
@@ -981,10 +976,6 @@ function updateFormatUI(format) {
   aiOptions.hidden = format !== "ai_vs_ai";
   sideField.hidden = !(format === "human_vs_ai" || format === "quick");
   humanOptions.hidden = format === "ai_vs_ai";
-  exchangesField.hidden = format === "moderator";
-  const quick = format === "quick";
-  exchangesInput.disabled = quick || format === "moderator";
-  if (quick) exchangesInput.value = "4";
   suggestionsField.hidden = !(format === "human_vs_ai" || format === "quick");
   if (suggestionsField.hidden) suggestionsInput.checked = false;
   else suggestionsInput.checked = true;
@@ -1016,12 +1007,9 @@ function collectRunParams() {
   };
   if (format === "ai_vs_ai") {
     params.mode = aiModeInput.value;
-    params.turns = clamp(Number.parseInt(aiTurnsInput.value, 10) || 7, 2, 40);
     params.outcome = aiOutcomeInput.value;
+    params.agree = true;
   } else {
-    params.exchanges = format === "quick"
-      ? 4
-      : clamp(Number.parseInt(exchangesInput.value, 10) || 4, 1, 50);
     if (format === "human_vs_ai" || format === "quick") {
       params.human_persona = document.querySelector('input[name="side"]:checked')?.value || "ddr";
       params.suggestions = suggestionsInput.checked;
@@ -1030,10 +1018,6 @@ function collectRunParams() {
     }
   }
   return params;
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
 }
 
 function exportRun(format) {

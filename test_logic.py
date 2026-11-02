@@ -161,4 +161,33 @@ finally:
     o.OPTS = old_opts
 assert tail == " Aber", tail
 
+assert o.last_statement_index(tr, "ddr") == 4
+assert o.last_statement_index(tr, o.MODERATOR) == 0
+assert o.last_statement_index([(o.MODERATOR, "Thema")], "ddr") is None
+
+async def check_stance():
+    old_ids, old_interrupt, old_opts = o.IDS, o.p_interrupt, o.OPTS
+    probs = {"solidarity_us": 0.1, "ddr": 0.1}
+
+    async def fake_p_interrupt(persona, prompt):
+        return probs[persona]
+
+    try:
+        o.IDS = {"solidarity_us": (1, 2), "ddr": (1, 2)}
+        o.p_interrupt = fake_p_interrupt
+        o.OPTS = types.SimpleNamespace(accept=0.35, debug=False, topic="Thema")
+        assert await o.evaluate_stance(tr, "Thema", 1) == "agree"
+        probs["ddr"] = 0.9
+        assert await o.evaluate_stance(tr, "Thema", 1) == "disagree"
+        probs["ddr"] = 0.1
+        assert await o.evaluate_human_stance("ddr", "solidarity_us", tr, 1) == "agree"
+        probs["solidarity_us"] = 0.9
+        assert await o.evaluate_human_stance("ddr", "solidarity_us", tr, 1) == "disagree"
+        o.IDS = {}
+        assert await o.evaluate_stance(tr, "Thema", 1) == "disagree"
+    finally:
+        o.IDS, o.p_interrupt, o.OPTS = old_ids, old_interrupt, old_opts
+
+asyncio.run(check_stance())
+
 print("all logic tests passed")

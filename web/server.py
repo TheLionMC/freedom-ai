@@ -203,12 +203,12 @@ class RunParams(BaseModel):
     format: Literal["ai_vs_ai", "human_vs_ai", "human_vs_both", "moderator", "quick"] = "ai_vs_ai"
     human_persona: Literal["solidarity_us", "ddr"] | None = None
     turn_seconds: int = Field(60, ge=10, le=600)
-    exchanges: int = Field(4, ge=1, le=50)
+    exchanges: int = Field(12, ge=1, le=50)
     suggestions: bool = True
     mode: Literal["polite", "free", "chaos"] = "free"
-    turns: int = Field(7, ge=0, le=100)
+    turns: int = Field(40, ge=1, le=100)
     rotate: int = Field(0, ge=0, le=100)
-    agree: bool = False
+    agree: bool = True
     outcome: Literal["auto", "agree", "disagree", "angry", "random"] = "auto"
     temperature: float = Field(0.8, ge=0.0, le=2.0)
     dice: float | None = Field(None, ge=0.0, le=1.0)
@@ -304,8 +304,7 @@ def make_command(params: RunParams) -> list[str]:
         "--rage", str(params.rage),
         "--repeat-guard" if params.repeat_guard else "--no-repeat-guard",
     ]
-    if params.agree:
-        options.append("--agree")
+    options.append("--agree" if params.agree else "--no-agree")
     if params.dice is not None:
         options.extend(["--dice", f"{params.dice:g}"])
     if not params.auto_launch:
@@ -524,23 +523,28 @@ def blocks_from_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return blocks
 
 
-def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
-    if record.get("status") in ("starting", "running"):
+def normalize_record(record: dict[str, Any], orphan: bool = True) -> dict[str, Any]:
+    if orphan and record.get("status") in ("starting", "running"):
         record["status"] = "stopped"
+    if not record.get("outcome"):
+        for event in reversed(record.get("events") or []):
+            if event.get("type") == "outcome" and event.get("outcome"):
+                record["outcome"] = event["outcome"]
+                break
     return record
 
 
 def load_record(run_id: str) -> dict[str, Any]:
     run = ACTIVE.get(run_id)
     if run:
-        return {
+        return normalize_record({
             "id": run.id,
             "created": run.created,
             "params": run.params,
             "status": run.status,
             "events": run.events,
             "blocks": blocks_from_events(run.events),
-        }
+        }, orphan=False)
     path = RUNS_DIR / f"{run_id}.json"
     if not path.is_file():
         raise HTTPException(status_code=404, detail="run not found")

@@ -36,31 +36,31 @@
         <button type="button" class="mode-card" data-format="ai_vs_ai">
           <span class="mode-index">01</span>
           <span class="mode-name" data-i18n="modeAI">KI gegen KI</span>
-          <span class="mode-desc" data-i18n="modeAIDesc">Beide Modelle debattieren autonom. Du liest mit.</span>
+          <span class="mode-desc" data-i18n="modeAIDesc">Beide Modelle debattieren autonom, bis sie sich einig oder klar uneinig sind.</span>
           <span class="mode-arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="mode-card" data-format="human_vs_ai">
           <span class="mode-index">02</span>
           <span class="mode-name" data-i18n="modeHumanAI">Du gegen eine KI</span>
-          <span class="mode-desc" data-i18n="modeHumanAIDesc">Wähle eine Seite und antworte der anderen Stimme.</span>
+          <span class="mode-desc" data-i18n="modeHumanAIDesc">Wähle eine Seite und antworte. Die KI führt das Gespräch zu Einigung oder Uneinigkeit.</span>
           <span class="mode-arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="mode-card" data-format="human_vs_both">
           <span class="mode-index">03</span>
           <span class="mode-name" data-i18n="modeHumanBoth">Du gegen beide KIs</span>
-          <span class="mode-desc" data-i18n="modeHumanBothDesc">Eine Aussage von dir, beide Stimmen antworten.</span>
+          <span class="mode-desc" data-i18n="modeHumanBothDesc">Eine Aussage von dir, beide Stimmen antworten. Endet bei Einigung oder klarer Uneinigkeit.</span>
           <span class="mode-arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="mode-card" data-format="moderator">
           <span class="mode-index">04</span>
           <span class="mode-name" data-i18n="modeModerator">Du moderierst</span>
-          <span class="mode-desc" data-i18n="modeModeratorDesc">Du stellst die Fragen, beide KIs antworten der Reihe nach.</span>
+          <span class="mode-desc" data-i18n="modeModeratorDesc">Du stellst die Fragen, beide KIs antworten. Endet bei Einigung oder klarer Uneinigkeit.</span>
           <span class="mode-arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="mode-card accent" data-format="quick">
           <span class="mode-index">05</span>
           <span class="mode-name" data-i18n="modeQuick">Schnellduell</span>
-          <span class="mode-desc" data-i18n="modeQuickDesc">Vier Runden, dann Abschlussstatements. Einigung beendet das Duell sofort.</span>
+          <span class="mode-desc" data-i18n="modeQuickDesc">Max. vier Runden, dann Abschlussstatements. Einigung oder klare Uneinigkeit beendet es früher.</span>
           <span class="mode-arrow" aria-hidden="true">→</span>
         </button>
       </div>
@@ -194,10 +194,6 @@
         </fieldset>
 
         <div class="grid2" id="human-options">
-          <label class="field" id="exchanges-field">
-            <span data-i18n="exchanges">Runden</span>
-            <input id="exchanges-input" type="number" min="1" max="50" value="4">
-          </label>
           <label class="field">
             <span data-i18n="turnSeconds">Zeit pro Antwort</span>
             <select id="turn-seconds-input">
@@ -225,21 +221,18 @@
               </select>
             </label>
             <label class="field">
-              <span data-i18n="turns">Runden</span>
-              <input id="ai-turns-input" type="number" min="2" max="40" value="7">
+              <span data-i18n="outcome">Ergebnis</span>
+              <select id="ai-outcome-input">
+                <option value="auto" selected data-i18n="outcomeAuto">Automatisch</option>
+                <option value="agree" data-i18n="outcomeAgree">Einigung erzwingen</option>
+                <option value="disagree" data-i18n="outcomeDisagree">Uneinig bleiben</option>
+                <option value="angry" data-i18n="outcomeAngry">Eskalation</option>
+                <option value="random" data-i18n="outcomeRandom">Zufällig</option>
+              </select>
             </label>
           </div>
-          <label class="field">
-            <span data-i18n="outcome">Ergebnis</span>
-            <select id="ai-outcome-input">
-              <option value="auto" selected data-i18n="outcomeAuto">Automatisch</option>
-              <option value="agree" data-i18n="outcomeAgree">Einigung erzwingen</option>
-              <option value="disagree" data-i18n="outcomeDisagree">Uneinig bleiben</option>
-              <option value="angry" data-i18n="outcomeAngry">Eskalation</option>
-              <option value="random" data-i18n="outcomeRandom">Zufällig</option>
-            </select>
-          </label>
         </div>
+        <p class="hint" data-i18n="autoEndHint">Endet automatisch bei Einigung oder klarer Uneinigkeit.</p>
 
         <label class="check">
           <input type="checkbox" id="auto-launch-input" checked>

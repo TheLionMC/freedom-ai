@@ -178,7 +178,7 @@ DISAGREE_LINES = {
 
 
 # ---------- pure helpers ----------
-def window(transcript, scenario, start, k=4):
+def window(transcript, scenario, start, k=2):
     tail = list(transcript[start:])
     if k > 0:
         tail = tail[-k:]
@@ -635,42 +635,56 @@ def print_fallback(lines, order):
 def angry_exit(next_speaker):
     print_fallback(ANGRY_LINES, [next_speaker, other(next_speaker)])
 
-async def resolve_round(scenario, transcript, start, next_speaker, strikes, first_round=False):
-    mode = OPTS.outcome
+def last_statement_index(transcript, persona):
+    for index in range(len(transcript) - 1, -1, -1):
+        if transcript[index][0] == persona:
+            return index
+    return None
+
+
+async def evaluate_stance(transcript, scenario, start):
+    """Agree only when both personas accept the other's latest statement."""
+    if not IDS:
+        return "disagree"
+    accept = getattr(OPTS, "accept", 0.35)
+    for persona in PERSONAS:
+        other_persona = other(persona)
+        index = last_statement_index(transcript, other_persona)
+        if index is None:
+            return "disagree"
+        ctx = window(transcript[:index], scenario, start, k=2)
+        prob = await p_interrupt(persona, render(ctx, (other_persona, transcript[index][1]), persona))
+        if getattr(OPTS, "debug", False):
+            print(f"\n\n[{persona} Stimmung p={prob:.2f}]")
+        if prob >= accept:
+            return "disagree"
+    return "agree"
+
+
+async def evaluate_human_stance(human, ai, transcript, start):
+    """Agree when the AI accepts the human's latest statement."""
+    if not IDS:
+        return "disagree"
+    index = last_statement_index(transcript, human)
+    if index is None:
+        return "disagree"
+    ctx = window(transcript[:index], OPTS.topic, start, k=2)
+    prob = await p_interrupt(ai, render(ctx, (human, transcript[index][1]), ai))
+    if getattr(OPTS, "debug", False):
+        print(f"\n\n[{ai} Stimmung p={prob:.2f}]")
+    return "agree" if prob < getattr(OPTS, "accept", 0.35) else "disagree"
+
+
+async def finalize_outcome(scenario, transcript, start, next_speaker, decision):
     order = [next_speaker, other(next_speaker)]
-    joint = None
-    opener = None
-    if mode == "auto":
-        ctx = window(transcript, scenario, start, k=2)
-        prob = None
-        for attempt in range(max(1, OPTS.attempts)):
-            temp = OPTS.temperature + 0.1 * attempt
-            mix = OPTS.mix_every if attempt == 0 else 2
-            opener = random.choice(AGREE_OPENERS)
-            joint = await weave(scenario, transcript, start, order, mix_every=mix, temperature=temp,
-                                opener=opener)
-            if not valid_weave(joint, opener) or looks_like_assistant(joint):
-                prob = 1.0
-            else:
-                probs = [await p_interrupt(p, render(ctx, (other(p), joint), p)) for p in PERSONAS]
-                prob = max(probs)
-            if OPTS.debug:
-                print(f"\n\n[Einigungs-Test p={prob:.2f}]")
-            if prob < OPTS.accept:
-                break
-        decision, strikes = decide_outcome("auto", prob, strikes, OPTS.patience, OPTS.accept)
-    else:
-        decision, strikes = decide_outcome(mode, None, strikes, OPTS.patience, OPTS.accept,
-                                           first_round=first_round)
-        if decision == "agree":
-            opener = random.choice(AGREE_OPENERS)
-            joint = await weave(scenario, transcript, start, order, mix_every=OPTS.mix_every,
-                                opener=opener)
     if decision == "agree":
-        if joint is None or not valid_weave(joint, opener) or looks_like_assistant(joint):
+        opener = random.choice(AGREE_OPENERS)
+        joint = await weave(scenario, transcript, start, order, mix_every=OPTS.mix_every,
+                            opener=opener)
+        if not valid_weave(joint, opener) or looks_like_assistant(joint):
             print_fallback(FALLBACK_LINES, order)
         print("\n\n[Einigung erreicht]")
-        return "agree", strikes
+        return
     if decision == "disagree":
         opener = random.choice(DISAGREE_OPENERS)
         joint = await weave(scenario, transcript, start, order, mix_every=OPTS.mix_every,
@@ -678,10 +692,29 @@ async def resolve_round(scenario, transcript, start, next_speaker, strikes, firs
         if not valid_weave(joint, opener) or looks_like_assistant(joint):
             print_fallback(DISAGREE_LINES, order)
         print("\n\n[Einigung: uneinig, aber respektvoll]")
-        return "disagree", strikes
+        return
     angry_exit(next_speaker)
     print("\n\n[Abbruch: Streit eskaliert]")
-    return "angry", strikes
+
+
+async def resolve_round(scenario, transcript, start, next_speaker, strikes, first_round=False):
+    if OPTS.outcome == "auto":
+        decision = await evaluate_stance(transcript, scenario, start)
+        if decision == "agree":
+            await finalize_outcome(scenario, transcript, start, next_speaker, "agree")
+            return "agree", strikes
+        strikes += 1
+        if strikes >= getattr(OPTS, "patience", 4):
+            await finalize_outcome(scenario, transcript, start, next_speaker, "disagree")
+            return "disagree", strikes
+        if OPTS.debug:
+            print(f"\n\n[Runde ohne Einigung: {strikes}/{getattr(OPTS, 'patience', 4)}]")
+        return "continue", strikes
+
+    decision, strikes = decide_outcome(OPTS.outcome, None, strikes, OPTS.patience, OPTS.accept,
+                                       first_round=first_round)
+    await finalize_outcome(scenario, transcript, start, next_speaker, decision)
+    return decision, strikes
 
 
 # ---------- the debate ----------
@@ -697,7 +730,6 @@ async def debate():
         just_interrupted = False
         last_interrupt_turn = -OPTS.cooldown - 1
         strikes = 0
-        flags = []
         pool = scenario_pool(scenario)
         turn = 0
         round_turns = 0
@@ -711,7 +743,6 @@ async def debate():
             if cut:
                 text += await continue_after_interrupt(speaker, ctx, text)
             transcript.append((speaker, text))
-            flags.append(cut)
             if cut:
                 last_interrupt_turn = turn
                 print(" —", end="")
@@ -724,28 +755,37 @@ async def debate():
             turn += 1
             round_turns += 1
 
-            if OPTS.agree and OPTS.outcome == "auto" and rage_triggered(flags, OPTS.rage):
-                angry_exit(speaker)
-                print("\n\n[Abbruch: Streit eskaliert]")
-                return
-
-            round_done = (OPTS.rotate > 0 and round_turns >= OPTS.rotate) or (turn >= OPTS.turns)
-            if round_done:
-                if OPTS.agree:
-                    decision, strikes = await resolve_round(scenario, transcript, start, speaker, strikes,
-                                                            first_round=(round_index == 0))
+            if OPTS.agree:
+                if round_turns >= 2:
+                    round_turns = 0
+                    decision, strikes = await resolve_round(
+                        scenario, transcript, start, speaker, strikes,
+                        first_round=(round_index == 0),
+                    )
                     round_index += 1
-                    if decision == "angry":
+                    if decision in ("agree", "disagree", "angry"):
                         return
-                round_turns = 0
-                if turn < OPTS.turns:
-                    nxt = pool.pop() if pool else None
-                    if nxt:
-                        scenario = nxt
-                        transcript.append((MODERATOR, scenario))
-                        start = len(transcript)
-                        just_interrupted = False
-                        print(f"\n\n[Moderator] {scenario}")
+            else:
+                round_done = (OPTS.rotate > 0 and round_turns >= OPTS.rotate) or (turn >= OPTS.turns)
+                if round_done:
+                    round_turns = 0
+                    if turn < OPTS.turns:
+                        nxt = pool.pop() if pool else None
+                        if nxt:
+                            scenario = nxt
+                            transcript.append((MODERATOR, scenario))
+                            start = len(transcript)
+                            just_interrupted = False
+                            print(f"\n\n[Moderator] {scenario}")
+        if OPTS.agree:
+            if round_turns > 0:
+                decision, strikes = await resolve_round(
+                    scenario, transcript, start, speaker, strikes,
+                    first_round=(round_index == 0),
+                )
+                if decision in ("agree", "disagree", "angry"):
+                    return
+            await finalize_outcome(scenario, transcript, start, speaker, "disagree")
         print()
 
 
@@ -910,22 +950,35 @@ async def session_human_vs_ai(quick=False):
     start = 1
     emit({"type": "topic", "topic": OPTS.topic, "mode": "quick" if quick else "human_vs_ai"})
     rounds = 4 if quick else max(1, OPTS.exchanges)
+    patience = getattr(OPTS, "patience", 4)
+    strikes = 0
     for _ in range(rounds):
         result = await session_human_turn(human, human, transcript, start,
                                           allow_suggestion=True, suggestion_model=human)
         if result in ("agree", "end"):
             return
         await session_ai_turn(ai, transcript, start)
+        decision = await evaluate_human_stance(human, ai, transcript, start)
+        if decision == "agree":
+            emit({"type": "outcome", "outcome": "agree"})
+            return
+        strikes += 1
+        if not quick and strikes >= patience:
+            emit({"type": "outcome", "outcome": "disagree"})
+            return
     if quick:
         emit({"type": "status", "state": "closing", "text": "Abschlussstatements"})
         await session_ai_turn(ai, transcript, start, section="closing")
         await session_ai_turn(human, transcript, start, section="closing", human=True, auto=True)
+    emit({"type": "outcome", "outcome": "disagree"})
 
 
 async def session_human_vs_both():
     transcript = [(MODERATOR, OPTS.topic)]
     start = 1
     emit({"type": "topic", "topic": OPTS.topic, "mode": "human_vs_both"})
+    patience = getattr(OPTS, "patience", 4)
+    strikes = 0
     for _ in range(max(1, OPTS.exchanges)):
         result = await session_human_turn(MODERATOR, "human", transcript, start,
                                           allow_suggestion=False)
@@ -933,19 +986,39 @@ async def session_human_vs_both():
             return
         for speaker in PERSONAS:
             await session_ai_turn(speaker, transcript, start)
+        decision = await evaluate_stance(transcript, OPTS.topic, start)
+        if decision == "agree":
+            emit({"type": "outcome", "outcome": "agree"})
+            return
+        strikes += 1
+        if strikes >= patience:
+            emit({"type": "outcome", "outcome": "disagree"})
+            return
+    emit({"type": "outcome", "outcome": "disagree"})
 
 
 async def session_moderator():
     transcript = [(MODERATOR, OPTS.topic)]
     start = 1
     emit({"type": "topic", "topic": OPTS.topic, "mode": "moderator"})
-    while True:
+    patience = getattr(OPTS, "patience", 4)
+    strikes = 0
+    for _ in range(max(1, OPTS.exchanges)):
         result = await session_human_turn(MODERATOR, "moderator", transcript, start,
                                           allow_suggestion=False)
         if result in ("agree", "end"):
             return
         for speaker in PERSONAS:
             await session_ai_turn(speaker, transcript, start)
+        decision = await evaluate_stance(transcript, OPTS.topic, start)
+        if decision == "agree":
+            emit({"type": "outcome", "outcome": "agree"})
+            return
+        strikes += 1
+        if strikes >= patience:
+            emit({"type": "outcome", "outcome": "disagree"})
+            return
+    emit({"type": "outcome", "outcome": "disagree"})
 
 
 async def session_main():
@@ -956,6 +1029,12 @@ async def session_main():
     emit({"type": "status", "state": "starting", "text": "Server werden vorbereitet"})
     async with httpx.AsyncClient(timeout=None) as http:
         client = http
+        try:
+            await load_token_ids()
+        except (Exception, SystemExit) as exc:
+            emit({"type": "error", "text": f"Stimmungsanalyse nicht verfügbar: {exc}"})
+            emit({"type": "end", "status": "error", "exit_code": 1})
+            return
         emit({"type": "status", "state": "running", "text": "Debatte läuft"})
         try:
             if OPTS.session_mode == "quick":
@@ -1002,7 +1081,8 @@ def parse_args():
     ap.add_argument("--cooldown", type=int, default=3)
     ap.add_argument("--rotate", type=int, default=0, help="turns per scenario (0 = stay on the requested topic)")
     ap.add_argument("--repeat-guard", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument("--agree", action="store_true", help="resolve every round with a joint statement")
+    ap.add_argument("--agree", action="store_true", default=True, help="auto-resolve by stance each round")
+    ap.add_argument("--no-agree", dest="agree", action="store_false")
     ap.add_argument("--mix-every", type=int, default=1)
     ap.add_argument("--joint-sentences", type=int, default=3)
     ap.add_argument("--accept", type=float, default=0.35)
@@ -1015,7 +1095,7 @@ def parse_args():
                     default="human_vs_ai")
     ap.add_argument("--human-persona", choices=tuple(PERSONAS))
     ap.add_argument("--turn-seconds", type=int, default=60)
-    ap.add_argument("--exchanges", type=int, default=4)
+    ap.add_argument("--exchanges", type=int, default=12, help="maximum human rounds (safety cap)")
     ap.add_argument("--suggestions", action=argparse.BooleanOptionalAction, default=True)
     return ap.parse_args()
 
