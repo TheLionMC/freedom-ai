@@ -25,7 +25,7 @@ ORCHESTRATOR = ROOT / "ochestrator.py"
 RUNS_DIR = ROOT / "out" / "runs"
 
 sys.path.insert(0, str(ROOT))
-import ochestrator as orch  # noqa: E402  (imports the CLI module, never starts servers)
+import ochestrator as orch
 
 PERSONA_LABELS = {p: info["label"] for p, info in orch.PERSONAS.items()}
 MODERATOR_LABEL = "Moderator"
@@ -53,8 +53,6 @@ OUTCOME_LABELS = {
 
 
 class OrchestratorParser:
-    """Turns the CLI's ANSI-coloured stdout into structured transcript events."""
-
     def __init__(self) -> None:
         self.buf = ""
         self.state = "idle"
@@ -380,7 +378,7 @@ async def run_debate(run: Run, command: list[str]) -> None:
         else:
             run.status = "error"
         run.emit({"type": "end", "status": run.status, "exit_code": run.exit_code})
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:
         run.status = "error"
         run.emit({"type": "error", "text": str(exc)})
         run.emit({"type": "end", "status": "error", "exit_code": None})
@@ -455,7 +453,7 @@ async def run_session(run: Run, command: list[str]) -> None:
             run.status = "error"
         if end_status is None:
             run.emit({"type": "end", "status": run.status, "exit_code": run.exit_code})
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:
         run.status = "error"
         run.emit({"type": "error", "text": str(exc)})
         run.emit({"type": "end", "status": "error", "exit_code": None})

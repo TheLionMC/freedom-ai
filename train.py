@@ -25,7 +25,7 @@ class DS(torch.utils.data.Dataset):
             if len(p) + len(c) > MAX_LEN:
                 skipped += 1
                 continue
-            self.items.append({"input_ids": p + c, "labels": [-100] * len(p) + c})  # loss only on the completion
+            self.items.append({"input_ids": p + c, "labels": [-100] * len(p) + c})
         print(f"{path}: {len(self.items)} samples, {skipped} skipped (too long)")
     def __len__(self): return len(self.items)
     def __getitem__(self, i): return self.items[i]
@@ -46,7 +46,6 @@ def make_collator(pad_id):
 
 @torch.no_grad()
 def eval_decision(model, tok, path, ids):
-    """How well does the model separate interrupt from wait on held-out samples?"""
     model.eval()
     res = {"interrupt": [], "wait": []}
     for line in open(path, encoding="utf-8"):
@@ -124,7 +123,6 @@ def main():
         logging_steps=5, save_strategy="no",
         report_to="none", remove_unused_columns=False)
     if device == "cuda" and training_args.n_gpu > 1:
-        # PEFT trainable-token adapters are not compatible with Trainer's DataParallel wrapper.
         training_args._n_gpu = 1
         print(
             "Multiple GPUs detected; using cuda:0 because PEFT trainable-token "

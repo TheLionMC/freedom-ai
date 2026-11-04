@@ -19,11 +19,11 @@ if DEFAULT_SERVER is None:
     DEFAULT_SERVER = Path(shutil.which("llama-server") or SERVER_CANDIDATES[0])
 MIN_ROUNDS_BEFORE_OUTCOME = 3
 
-PERSONAS = {   # insertion order = speaking order; solidarity_us opens
+PERSONAS = {
     "solidarity_us": {"port": 8081, "label": "SOLIDARITÄT (USA)"},
     "ddr":           {"port": 8082, "label": "DDR"},
 }
-MODES = {      # thresh = minimum relative p(interrupt); None = never interrupt
+MODES = {
     "polite": dict(thresh=None, min_chars=0),
     "free":   dict(thresh=0.6,  min_chars=60),
     "chaos":  dict(thresh=0.25, min_chars=40),
@@ -34,9 +34,9 @@ COLORS = {"solidarity_us": "\033[92m", "ddr": "\033[91m"}
 RESET = "\033[0m"
 client = None
 OPTS = None
-IDS = {}            # persona -> (interrupt token id, wait token id)
+IDS = {}
 _raw_printed = False
-SESSION = False     # JSON-lines protocol for the web frontend
+SESSION = False
 STDIN_QUEUE = None
 
 FALLBACK_SCENARIOS = [
@@ -186,7 +186,6 @@ DISAGREE_LINES = {
 }
 
 
-# ---------- pure helpers ----------
 TOPIC_STOPWORDS = {
     "aber", "alle", "alles", "als", "also", "andere", "auch", "auf", "aus",
     "bei", "bin", "bis", "dabei", "damit", "das", "dass", "dein", "dem",
@@ -508,7 +507,6 @@ def scenario_pool(topic):
     return pool
 
 
-# ---------- launching the servers ----------
 def find_model(persona, override):
     if override:
         return Path(override)
@@ -529,7 +527,7 @@ def wait_for_server(process, base_url, timeout, log_file):
             with urlopen(f"{base_url}/health", timeout=1) as r:
                 if r.status == 200:
                     return
-        except OSError:                 # not up yet, or still answering 503 while loading
+        except OSError:
             time.sleep(1)
     raise RuntimeError(f"{base_url} not ready after {timeout}s. Try a smaller --context.")
 
@@ -549,7 +547,7 @@ def launch_servers(a, stack):
         proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, text=True)
         stack.callback(_stop, proc)
         info["proc"], info["log"] = proc, log
-    for persona, info in PERSONAS.items():   # both load at the same time, then wait for each
+    for persona, info in PERSONAS.items():
         wait_for_server(info["proc"], f"http://127.0.0.1:{info['port']}", a.startup_timeout, info["log"])
         print(f"{persona} ready")
 
@@ -562,7 +560,6 @@ def _stop(proc):
             proc.kill(); proc.wait()
 
 
-# ---------- talking to the servers ----------
 def url(persona):
     return f"http://127.0.0.1:{PERSONAS[persona]['port']}"
 
@@ -656,7 +653,7 @@ async def p_interrupt(listener, prompt):
         tid, name = t.get("id"), t.get("token") or t.get("tok_str")
         if tid == iid or name == INTERRUPT: pi = max(pi, _prob(t))
         elif tid == wid or name == WAIT:    pw = max(pw, _prob(t))
-    return pi / (pi + pw) if pi + pw > 0 else 0.0     # same relative p as in the training eval
+    return pi / (pi + pw) if pi + pw > 0 else 0.0
 
 async def speak(speaker, listener, ctx, transcript, mode, allow_interrupt, scenario=None):
     scenario = scenario or getattr(OPTS, "topic", "")
@@ -780,7 +777,6 @@ async def continue_after_interrupt(speaker, ctx, partial, n_predict=8, transcrip
     return extra
 
 
-# ---------- joint text and round outcomes ----------
 async def weave(scenario, transcript, start, order, mix_every=1, temperature=None,
                 joint_sentences=None, opener=None, session_stream=False):
     speaker = order[0]
@@ -845,7 +841,6 @@ def last_statement_index(transcript, persona):
 
 
 async def evaluate_stance(transcript, scenario, start):
-    """Agree only when both personas explicitly accept the other's latest statement."""
     if not IDS or not mutual_explicit_agreement(transcript):
         return "disagree"
     accept = getattr(OPTS, "accept", 0.35)
@@ -864,7 +859,6 @@ async def evaluate_stance(transcript, scenario, start):
 
 
 async def evaluate_human_stance(human, ai, transcript, start):
-    """Agree when the AI accepts the human's latest statement."""
     if not IDS:
         return "disagree"
     index = last_statement_index(transcript, human)
@@ -951,7 +945,6 @@ async def resolve_round(scenario, transcript, start, next_speaker, strikes, firs
     return decision, strikes
 
 
-# ---------- the debate ----------
 async def debate():
     global client
     mode = MODES[OPTS.mode]
@@ -1023,7 +1016,6 @@ async def debate():
 
 
 def emit(event):
-    """Write one NDJSON event. Only active in --session mode."""
     if not SESSION:
         return
     sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
@@ -1049,7 +1041,6 @@ def _read_stdin(loop, queue):
 
 
 async def wait_command(seconds, allow_agree=True):
-    """Wait for the next input/agree/end command, or return None on timeout."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + seconds
     while True:
